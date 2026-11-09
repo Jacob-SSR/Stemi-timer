@@ -151,7 +151,7 @@ export async function snapshot(): Promise<Snapshot> {
     serverNow: now,
     hospital: config.hospital,
     hospitals: config.hospitals,
-    sheetEnabled: !!config.sheetUrl,
+    sheetEnabled: config.sheetEnabled,
     labNames: Object.keys(config.labItems),
   };
 }
@@ -308,7 +308,7 @@ export async function operate(input: unknown) {
       if (cmd.op === "refer") c.refer = cmd.value;
       else if (cmd.op === "outcome") c.outcome = cmd.value;
       else c.rca = cmd.value;
-      if (c.closed && config.sheetUrl && !s.pending.includes(c.id))
+      if (c.closed && config.sheetEnabled && !s.pending.includes(c.id))
         s.pending.push(c.id);
     } else if (cmd.op === "ekg") {
       c.ekgs.unshift({ ...cmd.value, t: now, confirmed: null });
@@ -341,7 +341,7 @@ export async function operate(input: unknown) {
         throw new Error("กรุณาระบุเหตุผลที่ไม่ให้ SK");
       s.log.unshift({ ...h, closed: now });
       s.cases = s.cases.filter((x) => x.id !== c.id);
-      if (config.sheetUrl) s.pending.push(c.id);
+      if (config.sheetEnabled) s.pending.push(c.id);
     } else if (cmd.op === "reopen") {
       if (!c.closed) throw new Error("เคสยังเปิดอยู่");
       delete c.closed;

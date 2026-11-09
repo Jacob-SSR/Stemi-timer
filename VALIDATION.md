@@ -6,7 +6,7 @@
 |---|---|
 | Next.js production build (`npm run build`) | ผ่าน |
 | TypeScript strict (`npm run typecheck`) | ผ่าน |
-| Core tests (`npm test`) | 20/20 ผ่าน |
+| Core tests (`npm test`) | 31/31 ผ่าน |
 | Edge browser workflow และ accessibility บน production build | 5/5 ผ่าน |
 | สำรอง SQLite แบบ online และเปิดอ่าน snapshot | ผ่าน |
 | หน้าจอ 375 / 768 / 1024 / 1440px และตรวจความกว้างเกินจอ | ผ่าน |
@@ -25,7 +25,7 @@ Browser workflow ครอบคลุม API ปฏิเสธผู้ไม�
 - ความต่างสีคู่หลักที่วัดได้: เนื้อหา 11.64:1, ข้อความรอง 5.77:1, ปุ่มมิ้น 8.11:1, ตัวจับเวลา 7.98:1, ข้อความผิดพลาด 6.30:1 ไม่ใช่การรับรอง WCAG ทุกเกณฑ์
 - ลบบล็อกตัวอย่างค่าการเชื่อมต่อ HOSxP ออกจาก README ตามคำขอ
 
-ใช้ข้อมูลสมมติทั้งหมด ยังไม่ได้ตรวจ HOSxP จริง, Google Apps Script deployment จริง, AI server จริง หรือรูปแบบเอกสารกับผู้ใช้งานโรงพยาบาล ต้องตรวจส่วนเหล่านี้ในสภาพแวดล้อมจริงก่อนใช้งาน
+ใช้ข้อมูลสมมติทั้งหมด ยังไม่ได้ตรวจ HOSxP จริง, การส่งข้อมูลด้วย Service Account จริง, AI server จริง หรือรูปแบบเอกสารกับผู้ใช้งานโรงพยาบาล ต้องตรวจส่วนเหล่านี้ในสภาพแวดล้อมจริงก่อนใช้งาน
 
 ## นำรายการที่เลือกผิด / ใช้ทดสอบออก
 
@@ -40,3 +40,11 @@ Google Sheet ทดสอบการเข้าคิวตามช่วง�
 ## เลือกวันในรายชื่อ ER
 
 ตรวจวันปฏิทินจริงรวม leap day, ปฏิเสธวันที่ไม่ครบ/สลับช่วง, ขอบเขตวันไทย 00:00 ถึง 23:59:59.999, ข้ามเที่ยงคืน, การกรองข้อมูลตามวัน และเลือก/ผูก VN วันเก่าจากข้อมูลฝั่งเซิร์ฟเวอร์ Browser ตรวจว่ามีช่องเลือกวันเท่านั้น ไม่มีช่องเลือกเวลา แสดงเวลามาถึง ค้นหาวันที่ไม่มีผู้ป่วยและกลับมาวันนี้ได้ รวมถึงหน้าจอมือถือ และยืนยันว่าการค้นหาไม่แก้ข้อมูลบันทึกเคส ยังไม่ได้ทดสอบฐาน HOSxP จริง
+## Google Sheets ผ่าน Service Account
+
+- เปลี่ยนจาก Apps Script เป็น OAuth JWT RS256 และ Google Sheets API โดยตรง ใช้ connection environment 3 ตัว ไม่มี credential จริงใน repository
+- ทดสอบ JWT signature, PEM ที่มี escaped newline, token cache/refresh, RAW literal/เลขศูนย์นำหน้า, วันที่แบบ numeric Bangkok wall time, สร้างแท็บ/หัวตาราง/ขยาย grid, upsert แถวเดิม, ตรวจหัวตารางผิดและ case_id ซ้ำ
+- ทดสอบคิวคงอยู่เมื่อส่งพลาด, เคลียร์เมื่อสำเร็จ, ป้องกัน worker ส่งชนกันด้วย SQLite lease, กู้ lease หมดอายุ และรักษาคิวเมื่อมีการแก้เคสระหว่างส่ง
+- `npm run typecheck`, `npm test` 31/31, production build และ Edge browser tests 5/5 ผ่าน ใช้ mock Google HTTP และฐานข้อมูล demo แยกจากข้อมูลจริง
+- สร้าง native Google Sheet ว่างด้วยหัวตาราง 35 คอลัมน์ ตรวจ readback, freeze, filter, รูปแบบวันที่/identifier, timezone ไทย และ writer permission ของ Service Account ผ่าน connector ตรวจภาพบน Google Sheets จริงแล้ว
+- ยังไม่ได้ใช้ private key จริงเพื่อทดสอบ OAuth หรือเขียนเคสจากแอปลงชีตจริง
