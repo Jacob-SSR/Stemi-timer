@@ -92,17 +92,24 @@ function inputTime(t: number | null) {
 function parseTime(s: string) {
   return s ? Date.parse(s + "+07:00") : null;
 }
-async function request(action = "state", body?: Command) {
-  const r = await fetch("/api/stemi?action=" + action, {
-    cache: "no-store",
-    ...(body
-      ? {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        }
-      : {}),
-  });
+async function request(
+  action = "state",
+  body?: Command,
+  query: Record<string, string> = {},
+) {
+  const r = await fetch(
+    "/api/stemi?" + new URLSearchParams({ action, ...query }),
+    {
+      cache: "no-store",
+      ...(body
+        ? {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          }
+        : {}),
+    },
+  );
   const j = await r.json();
   if (!r.ok)
     throw Object.assign(new Error(j.error || "เชื่อมต่อไม่สำเร็จ"), {
@@ -138,6 +145,11 @@ export default function Workspace() {
     value: string;
   } | null>(null);
   const [erLoading, setErLoading] = useState(false);
+  const [erFrom, setErFrom] = useState(""),
+    [erTo, setErTo] = useState("");
+  const [erSearched, setErSearched] = useState(false),
+    [erHasMore, setErHasMore] = useState(false);
+  const erRequest = useRef(0);
   const [clearText, setClearText] = useState("");
   const [clearIds, setClearIds] = useState<string[]>([]);
   const noteInput = useRef<HTMLInputElement>(null);
@@ -253,21 +265,46 @@ export default function Workspace() {
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
   }, [modal, mc, op]);
+  async function searchEr(from: string, to: string) {
+    const ticket = ++erRequest.current;
+    setError("");
+    setPatients([]);
+    setErLoading(true);
+    setErSearched(false);
+    setErHasMore(false);
+    try {
+      const response = await request("er", undefined, { from, to });
+      if (ticket !== erRequest.current) return;
+      setPatients(response.list);
+      setErHasMore(response.hasMore);
+      setErSearched(true);
+    } catch (e) {
+      if (ticket === erRequest.current) setError((e as Error).message);
+    } finally {
+      if (ticket === erRequest.current) setErLoading(false);
+    }
+  }
+  function changeErDates(from: string, to: string) {
+    ++erRequest.current;
+    setErFrom(from);
+    setErTo(to);
+    setPatients([]);
+    setErHasMore(false);
+    setErSearched(false);
+    setErLoading(false);
+    setError("");
+  }
   async function openEr(link = false) {
     setLinking(link);
     setSearch("");
     setModal("er");
     setModalId(active?.id || "");
-    setError("");
-    setPatients([]);
-    setErLoading(true);
-    try {
-      setPatients((await request("er")).list);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setErLoading(false);
-    }
+    const today = thaiDate(now ?? Date.now()),
+      from = erFrom || today,
+      to = erTo || today;
+    setErFrom(from);
+    setErTo(to);
+    await searchEr(from, to);
   }
   async function addCase() {
     if (await op({ op: "new" })) setSelected("");
@@ -1510,6 +1547,71 @@ export default function Workspace() {
             </div>
           ) : modal === "er" ? (
             <div className="modal-body">
+              <form
+                className="er-date-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void searchEr(erFrom, erTo);
+                }}
+              >
+                <label className="field">
+                  ตั้งแต่วันที่
+                  <input
+                    type="date"
+                    value={erFrom}
+                    max={erTo || undefined}
+                    required
+                    onChange={(e) => changeErDates(e.target.value, erTo)}
+                  />
+                </label>
+                <label className="field">
+                  ถึงวันที่
+                  <input
+                    type="date"
+                    value={erTo}
+                    min={erFrom || undefined}
+                    required
+                    onChange={(e) => changeErDates(erFrom, e.target.value)}
+                  />
+                </label>
+                <button
+                  className="primary"
+                  disabled={erLoading || !erFrom || !erTo}
+                  type="submit"
+                >
+                  <Search size={16} />
+                  ค้นหาตามวันที่
+                </button>
+                <div className="er-date-shortcuts">
+                  {(["today", "yesterday"] as const).map((key) => (
+                    <button
+                      type="button"
+                      key={key}
+                      disabled={erLoading}
+                      onClick={() => {
+                        const day = thaiDate(
+                          (now ?? Date.now()) -
+                            (key === "yesterday" ? 86400000 : 0),
+                        );
+                        changeErDates(day, day);
+                        void searchEr(day, day);
+                      }}
+                    >
+                      {key === "today" ? "วันนี้" : "เมื่อวาน"}
+                    </button>
+                  ))}
+                </div>
+              </form>
+              <p className="field-hint">
+                เลือกเฉพาะวัน · ครอบคลุมทั้งวันตั้งแต่ 00:00–23:59 น.
+                รายชื่อแสดงวันและเวลาที่มาถึง
+              </p>
+              {erHasMore && (
+                <div className="notice">
+                  พบมากกว่า 300 ราย แสดงล่าสุด 300 ราย
+                  กรุณาเลือกช่วงวันให้แคบลงเพื่อดูรายการที่เหลือ
+                </div>
+              )}
               <label className="field">
                 ค้นหาผู้ป่วยด้วยชื่อหรือ HN
                 <input
@@ -1524,7 +1626,11 @@ export default function Workspace() {
               </p>
               <div className="er-list">
                 {erLoading && <p role="status">กำลังโหลดรายชื่อผู้ป่วย…</p>}
+                {!erLoading && !erSearched && (
+                  <p className="muted">เลือกวันแล้วกด “ค้นหาตามวันที่”</p>
+                )}
                 {!erLoading &&
+                  erSearched &&
                   !patients.some((p) => (p.name + p.hn).includes(search)) && (
                     <p>ไม่พบผู้ป่วยที่ตรงกับคำค้น</p>
                   )}
@@ -1556,6 +1662,9 @@ export default function Workspace() {
                         <b>{p.name}</b>
                         <small>
                           HN {p.hn} · {p.age} ปี · {p.cc}
+                        </small>
+                        <small className="arrival-time">
+                          มาถึงโรงพยาบาล {thaiTime(p.door_in, true)}
                         </small>
                         {[...(s?.cases || []), ...(s?.log || [])].some(
                           (c) => c.vn === p.vn,

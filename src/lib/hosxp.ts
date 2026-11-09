@@ -1,5 +1,6 @@
 import mysql, { type RowDataPacket, type Pool } from "mysql2/promise";
 import { config } from "./config";
+import { erDayMatches, type ErDateRange } from "./er-dates";
 import {
   blankCase,
   type Case,
@@ -44,65 +45,72 @@ export async function serverNow() {
     ? Date.now()
     : (epoch((await select("SELECT NOW() AS n"))[0].n) ?? Date.now());
 }
-export async function erList(base: number): Promise<Patient[]> {
-  if (config.demo)
-    return [
-      {
-        vn: "DEMO001",
-        hn: "0045821",
-        name: "นายสมชาย ใจดี (ตัวอย่าง)",
-        age: 62,
-        sex: "ชาย",
-        door_in: base,
-        cc: "เจ็บแน่นหน้าอกร้าวไปแขนซ้าย 1 ชั่วโมง",
-        dx: "I21.0",
-        stemi: true,
-        hpi: "เจ็บแน่นกลางอก เหงื่อแตก ใจสั่น",
-        pmh: "HT, DM type 2",
-        address: "ข้อมูลตัวอย่าง จังหวัดบุรีรัมย์",
-        pttype: "บัตรทอง (UC)",
-      },
-      {
-        vn: "DEMO002",
-        hn: "0102233",
-        name: "นางมาลี สุขใส (ตัวอย่าง)",
-        age: 71,
-        sex: "หญิง",
-        door_in: base + 9 * 60000,
-        cc: "เหนื่อย ใจสั่น เหงื่อออก",
-        dx: "",
-        stemi: false,
-        hpi: "30 นาทีก่อนมา เหนื่อยหอบ",
-        pmh: "DLP",
-        address: "ข้อมูลตัวอย่าง",
-        pttype: "ข้าราชการ",
-      },
-      {
-        vn: "DEMO003",
-        hn: "0077410",
-        name: "นายทดสอบ ระบบ (ตัวอย่าง)",
-        age: 45,
-        sex: "ชาย",
-        door_in: base - 40 * 60000,
-        cc: "เจ็บหน้าอก",
-        dx: "R07.4",
-        stemi: false,
-        hpi: "",
-        pmh: "",
-        address: "",
-        pttype: "ประกันสังคม",
-      },
-    ];
-  const rows =
-    await select(`SELECT o.vn,o.hn,CONCAT(p.pname,p.fname,' ',p.lname) AS name,p.sex,
+function demoEr(base: number): Patient[] {
+  return [
+    {
+      vn: "DEMO001",
+      hn: "0045821",
+      name: "นายสมชาย ใจดี (ตัวอย่าง)",
+      age: 62,
+      sex: "ชาย",
+      door_in: base,
+      cc: "เจ็บแน่นหน้าอกร้าวไปแขนซ้าย 1 ชั่วโมง",
+      dx: "I21.0",
+      stemi: true,
+      hpi: "เจ็บแน่นกลางอก เหงื่อแตก ใจสั่น",
+      pmh: "HT, DM type 2",
+      address: "ข้อมูลตัวอย่าง จังหวัดบุรีรัมย์",
+      pttype: "บัตรทอง (UC)",
+    },
+    {
+      vn: "DEMO002",
+      hn: "0102233",
+      name: "นางมาลี สุขใส (ตัวอย่าง)",
+      age: 71,
+      sex: "หญิง",
+      door_in: base + 9 * 60000,
+      cc: "เหนื่อย ใจสั่น เหงื่อออก",
+      dx: "",
+      stemi: false,
+      hpi: "30 นาทีก่อนมา เหนื่อยหอบ",
+      pmh: "DLP",
+      address: "ข้อมูลตัวอย่าง",
+      pttype: "ข้าราชการ",
+    },
+    {
+      vn: "DEMO003",
+      hn: "0077410",
+      name: "นายทดสอบ ระบบ (ตัวอย่าง)",
+      age: 45,
+      sex: "ชาย",
+      door_in: base - 40 * 60000,
+      cc: "เจ็บหน้าอก",
+      dx: "R07.4",
+      stemi: false,
+      hpi: "",
+      pmh: "",
+      address: "",
+      pttype: "ประกันสังคม",
+    },
+  ];
+}
+async function queryErPatients(
+  where: string,
+  values: string[] = [],
+  limit: 1 | 300 | 301 = 300,
+): Promise<Patient[]> {
+  const rows = await select(
+    `SELECT o.vn,o.hn,CONCAT(p.pname,p.fname,' ',p.lname) AS name,p.sex,
     TIMESTAMPDIFF(YEAR,p.birthday,o.vstdate) AS age,CONCAT(o.vstdate,' ',o.vsttime) AS door_in,
     s.cc,s.hpi,s.pmh,pt.name AS pttype,CONCAT_WS(' ',p.addrpart,CONCAT('ม.',p.moopart),t.full_name) AS address,
     (SELECT GROUP_CONCAT(DISTINCT d.icd10) FROM ovstdiag d WHERE d.vn=o.vn) AS dx
     FROM ovst o JOIN er_regist e ON e.vn=o.vn LEFT JOIN patient p ON p.hn=o.hn
     LEFT JOIN opdscreen s ON s.vn=o.vn LEFT JOIN pttype pt ON pt.pttype=o.pttype
     LEFT JOIN thaiaddress t ON t.addressid=CONCAT(p.chwpart,p.amppart,p.tmbpart)
-    WHERE TIMESTAMP(o.vstdate,o.vsttime)>=DATE_SUB(NOW(),INTERVAL 24 HOUR)
-    ORDER BY o.vstdate DESC,o.vsttime DESC LIMIT 300`);
+    WHERE ${where}
+    ORDER BY o.vstdate DESC,o.vsttime DESC LIMIT ${limit}`,
+    values,
+  );
   return rows.map((r) => ({
     vn: String(r.vn),
     hn: String(r.hn),
@@ -118,6 +126,35 @@ export async function erList(base: number): Promise<Patient[]> {
     dx: r.dx || "",
     stemi: /(^|,)\s*I2[12]/i.test(r.dx || ""),
   }));
+}
+// Default stays 24 hours for automatic STEMI tracking; the picker supplies dates.
+export async function erList(
+  base: number,
+  range?: ErDateRange,
+): Promise<Patient[]> {
+  if (config.demo) {
+    const patients = demoEr(base);
+    return range
+      ? patients.filter((p) => erDayMatches(p.door_in, range))
+      : patients;
+  }
+  return range
+    ? queryErPatients(
+        "o.vstdate>=? AND o.vstdate<=?",
+        [range.from, range.to],
+        301,
+      )
+    : queryErPatients(
+        "TIMESTAMP(o.vstdate,o.vsttime)>=DATE_SUB(NOW(),INTERVAL 24 HOUR)",
+      );
+}
+// A selected historical ER visit must be looked up by VN, independently of the 24h list.
+export async function findErPatient(
+  base: number,
+  vn: string,
+): Promise<Patient | null> {
+  if (config.demo) return demoEr(base).find((p) => p.vn === vn) ?? null;
+  return (await queryErPatients("o.vn=?", [vn], 1))[0] ?? null;
 }
 interface HosTimes {
   values: Partial<Record<TimeKey, number | null>>;
