@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { config } from "./config";
 import { changeState, readState } from "./store";
-import { erList, hydrate, serverNow } from "./hosxp";
+import { erList, hydrate, serverNow, findErPatient } from "./hosxp";
 import {
   blankCase,
   steps,
@@ -158,7 +158,11 @@ export async function snapshot(): Promise<Snapshot> {
 export async function operate(input: unknown) {
   const cmd = operation.parse(input);
   const before = readState();
-  const patients = await erList(before.demoBase);
+  const selecting = cmd.op === "pin" || cmd.op === "link";
+  const patients = selecting ? [] : await erList(before.demoBase);
+  const chosenPatient = selecting
+    ? await findErPatient(before.demoBase, cmd.vn)
+    : null;
   const now = await serverNow();
   const hydrated =
     cmd.op === "close" || cmd.op === "stamp"
@@ -207,7 +211,7 @@ export async function operate(input: unknown) {
       return;
     }
     if (cmd.op === "pin") {
-      const p = patients.find((p) => p.vn === cmd.vn);
+      const p = chosenPatient;
       if (!p) throw new Error("ไม่พบ VN ใน ER");
       if ([...s.cases, ...s.log].some((c) => c.vn === p.vn))
         throw new Error("VN นี้มีเคสอยู่แล้ว");
@@ -244,7 +248,7 @@ export async function operate(input: unknown) {
         throw new Error("ไม่พบหมายเหตุ");
       c.notes = c.notes.filter((n) => n.id !== cmd.noteId);
     } else if (cmd.op === "link") {
-      const p = patients.find((p) => p.vn === cmd.vn);
+      const p = chosenPatient;
       if (!p) throw new Error("ไม่พบ VN");
       if ([...s.cases, ...s.log].some((x) => x.id !== c.id && x.vn === cmd.vn))
         throw new Error("VN นี้ผูกเคสแล้ว");

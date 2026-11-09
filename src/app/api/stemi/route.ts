@@ -8,6 +8,7 @@ import { erList, diagnostics } from "@/lib/hosxp";
 import { flushSheets } from "@/lib/sheets";
 import { csv, xlsx, word, powerpoint } from "@/lib/export";
 import { inRange } from "@/lib/model";
+import { parseErDates } from "@/lib/er-dates";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 function same(a: string, b: string) {
@@ -60,8 +61,15 @@ export async function GET(req: NextRequest) {
       action = q.get("action") || "state";
     if (action === "diag")
       return NextResponse.json(await diagnostics(readState().demoBase));
-    if (action === "er")
-      return NextResponse.json({ list: await erList(readState().demoBase) });
+    if (action === "er") {
+      const range = parseErDates(q.get("from"), q.get("to"));
+      const list = await erList(readState().demoBase, range);
+      return NextResponse.json({
+        list: list.slice(0, 300),
+        hasMore: list.length > 300,
+        range,
+      });
+    }
     if (action === "state") {
       await flushSheets();
       return NextResponse.json(await snapshot());
