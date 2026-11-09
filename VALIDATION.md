@@ -6,8 +6,8 @@
 |---|---|
 | Next.js production build (`npm run build`) | ผ่าน |
 | TypeScript strict (`npm run typecheck`) | ผ่าน |
-| Core tests (`npm test`) | 8/8 ผ่าน |
-| Edge browser workflow และ accessibility บน production build | 2/2 ผ่าน |
+| Core tests (`npm test`) | 11/11 ผ่าน |
+| Edge browser workflow และ accessibility บน production build | 3/3 ผ่าน |
 | สำรอง SQLite แบบ online และเปิดอ่าน snapshot | ผ่าน |
 | หน้าจอ 375 / 768 / 1024 / 1440px และตรวจความกว้างเกินจอ | ผ่าน |
 
@@ -26,3 +26,7 @@ Browser workflow ครอบคลุม API ปฏิเสธผู้ไม�
 - ลบบล็อกตัวอย่างค่าการเชื่อมต่อ HOSxP ออกจาก README ตามคำขอ
 
 ใช้ข้อมูลสมมติทั้งหมด ยังไม่ได้ตรวจ HOSxP จริง, Google Apps Script deployment จริง, AI server จริง หรือรูปแบบเอกสารกับผู้ใช้งานโรงพยาบาล ต้องตรวจส่วนเหล่านี้ในสภาพแวดล้อมจริงก่อนใช้งาน
+
+## นำรายการที่เลือกผิด / ใช้ทดสอบออก
+
+ตรวจการกดกลับและยืนยันใน dialog, การลบเคสทดลองพร้อมข้อมูลที่กรอกโดยไม่เพิ่ม completed log หรือคิว Sheet, การไม่เพิ่มผู้ป่วย STEMI ที่นำออกกลับมาเองเมื่อ polling, การเลือก VN เดิมเริ่มใหม่ และการปฏิเสธลบเคสที่ปิดแล้วจากอีกจอ ปุ่มนำออกเป็น sibling ของปุ่มเลือกผู้ป่วย ไม่ซ้อนปุ่มกัน และพื้นที่กดบนมือถืออย่างน้อย 44×44px

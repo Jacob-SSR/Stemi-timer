@@ -53,6 +53,7 @@ type Modal =
   | "ekg"
   | "time"
   | "close"
+  | "discard"
   | null;
 const metricNames = {
   ekg: "ถึงโรงพยาบาล → ตรวจ EKG",
@@ -170,7 +171,9 @@ export default function Workspace() {
       inFlight.current = true;
       try {
         update(await request("op", cmd));
-        setToast("บันทึกแล้ว");
+        setToast(
+          cmd.op === "discard" ? "นำรายการที่เลือกผิดออกแล้ว" : "บันทึกแล้ว",
+        );
         return true;
       } catch (e) {
         setError((e as Error).message);
@@ -455,29 +458,39 @@ export default function Workspace() {
             <>
               <div className="case-tabs">
                 {s.cases.map((c) => (
-                  <button
-                    key={c.id}
-                    className={
-                      "case-tab " + (active?.id === c.id ? "selected" : "")
-                    }
-                    onClick={() => setSelected(c.id)}
-                    aria-pressed={active?.id === c.id}
-                  >
-                    <span className="patient-dot" />
-                    <span>
-                      <b>{c.label}</b>
-                      <small>
-                        HN {c.hn || "รอลงทะเบียน"} · ผ่านไป{" "}
-                        {duration(
-                          (c.times.door_out.t ?? now ?? 0) -
-                            (c.times.door_in.t ?? now ?? 0),
-                        )}
-                      </small>
-                    </span>
-                    {active?.id === c.id && (
-                      <span className="live-pill">กำลังติดตาม</span>
-                    )}
-                  </button>
+                  <div className="case-tab-wrap" key={c.id}>
+                    <button
+                      className={
+                        "case-tab " + (active?.id === c.id ? "selected" : "")
+                      }
+                      onClick={() => setSelected(c.id)}
+                      aria-pressed={active?.id === c.id}
+                    >
+                      <span className="patient-dot" />
+                      <span>
+                        <b>{c.label}</b>
+                        <small>
+                          HN {c.hn || "รอลงทะเบียน"} · ผ่านไป{" "}
+                          {duration(
+                            (c.times.door_out.t ?? now ?? 0) -
+                              (c.times.door_in.t ?? now ?? 0),
+                          )}
+                        </small>
+                      </span>
+                      {active?.id === c.id && (
+                        <span className="live-pill">กำลังติดตาม</span>
+                      )}
+                    </button>
+                    <button
+                      className="remove-case-button"
+                      aria-label={"นำ " + c.label + " ออกจากหน้าติดตาม"}
+                      title="เลือกผู้ป่วยผิด? ปิดรายการนี้"
+                      disabled={busy || !connected}
+                      onClick={() => open("discard", c)}
+                    >
+                      <X size={18} aria-hidden="true" />
+                    </button>
+                  </div>
                 ))}
                 <button
                   className="new-case"
@@ -1278,6 +1291,7 @@ export default function Workspace() {
               ekg: "อ่านผล EKG",
               time: "แก้ไขเวลาที่บันทึก",
               close: "ยืนยันปิดเคส",
+              discard: "ปิดรายการที่เลือกผิด?",
             }[modal]
           }
           wide={modal === "ekg"}
@@ -1371,6 +1385,38 @@ export default function Workspace() {
                 </button>
               </div>
             </form>
+          ) : modal === "discard" && mc ? (
+            <div className="modal-body">
+              <p className="form-context">
+                {mc.label} · HN {mc.hn || "รอลงทะเบียน"}
+              </p>
+              <p>ต้องการนำผู้ป่วยรายนี้ออกจากหน้าติดตามใช่ไหม?</p>
+              <p>
+                รายการนี้จะไม่เข้า “เคสที่ปิดแล้ว” ไม่ถูกนับใน KPI และไม่ส่งไป
+                Google Sheet
+              </p>
+              <div className="notice">
+                ข้อมูลที่กรอกหรือกดเวลาไว้ในรายการนี้จะถูกลบ โดยไม่กระทบข้อมูลใน
+                HOSxP หากต้องการติดตามภายหลัง สามารถเลือกผู้ป่วยใหม่ได้
+              </div>
+              <div className="modal-actions">
+                <button disabled={busy} onClick={() => setModal(null)}>
+                  กลับไปหน้าติดตาม
+                </button>
+                <button
+                  className="danger-button"
+                  disabled={busy || !connected}
+                  onClick={async () => {
+                    if (await op({ op: "discard", id: mc.id })) {
+                      if (selected === mc.id) setSelected("");
+                      setModal(null);
+                    }
+                  }}
+                >
+                  ยืนยันนำออก
+                </button>
+              </div>
+            </div>
           ) : modal === "close" && mc ? (
             <div className="modal-body">
               <p className="form-context">

@@ -71,6 +71,7 @@ export const operation = z.discriminatedUnion("op", [
     important: z.boolean(),
   }),
   z.object({ op: z.literal("close"), id }),
+  z.object({ op: z.literal("discard"), id }),
   z.object({ op: z.literal("reopen"), id }),
   z.object({
     op: z.literal("refer"),
@@ -177,6 +178,7 @@ export async function operate(input: unknown) {
         dest: config.hospitals[0],
       });
       s.cases.unshift(c);
+      s.dismissed = s.dismissed.filter((vn) => vn !== p.vn);
       return;
     }
     const c = [...s.cases, ...s.log].find((c) => c.id === cmd.id);
@@ -188,7 +190,13 @@ export async function operate(input: unknown) {
       )
     )
       throw new Error("เคสปิดแล้ว");
-    if (cmd.op === "link") {
+    if (cmd.op === "discard") {
+      // Mistaken selections are removed, never archived as completed care.
+      // Suppress automatic ICD re-addition until staff explicitly select this VN again.
+      if (c.vn && !s.dismissed.includes(c.vn)) s.dismissed.push(c.vn);
+      s.cases = s.cases.filter((x) => x.id !== c.id);
+      s.pending = s.pending.filter((id) => id !== c.id);
+    } else if (cmd.op === "link") {
       const p = patients.find((p) => p.vn === cmd.vn);
       if (!p) throw new Error("ไม่พบ VN");
       if ([...s.cases, ...s.log].some((x) => x.id !== c.id && x.vn === cmd.vn))
@@ -197,6 +205,7 @@ export async function operate(input: unknown) {
       c.hn = p.hn;
       c.label = p.name;
       c.patient = p;
+      s.dismissed = s.dismissed.filter((vn) => vn !== p.vn);
     } else if (cmd.op === "stamp") {
       if (cmd.t == null) {
         if (cmd.key === "door_in" && !c.patient)
