@@ -7,12 +7,22 @@
 | Next.js production build (`npm run build`) | ผ่าน |
 | TypeScript strict (`npm run typecheck`) | ผ่าน |
 | Core tests (`npm test`) | 8/8 ผ่าน |
-| Edge browser workflow บน production build | 1/1 ผ่าน |
+| Edge browser workflow และ accessibility บน production build | 2/2 ผ่าน |
 | สำรอง SQLite แบบ online และเปิดอ่าน snapshot | ผ่าน |
-| หน้า desktop / mobile 390px และตรวจความกว้างเกินจอ | ผ่าน |
+| หน้าจอ 375 / 768 / 1024 / 1440px และตรวจความกว้างเกินจอ | ผ่าน |
 
 Core tests ครอบคลุม timezone ไทย, Needle ไม่ใช้เวลาสั่งยา, manual override/คืน HOSxP, validation, VN ซ้ำ, การบันทึกพร้อมกัน, ปิด/เปิดเคสด้วยข้อมูลเซิร์ฟเวอร์, RCA completion, transaction rollback, เคสค้างเกิน 24 ชั่วโมง, เวลาไม่ย้อนก่อน Door-in, CSV formula injection และ Office package จริง
 
 Browser workflow ครอบคลุม API ปฏิเสธผู้ไม่ล็อกอิน, เข้าระบบ, เพิ่มเคส, แก้ชื่อ, กดเวลา, หมายเหตุ, ปิดเคส, ผลหลัง Refer, ดาวน์โหลด Word/Excel/PowerPoint/CSV, เปิด Dashboard, มือถือ และปฏิเสธ POST จาก Origin อื่น ไม่พบ page error ระหว่างทดสอบ
+
+## Mint UX/UI refresh
+
+- ตรวจ workflow เดิมหลังเปลี่ยนชื่อเมนูและปุ่ม เพิ่มการแก้เวลาด้วย date/time picker และการยืนยันปิดเคส
+- ตรวจ Tab วนอยู่ใน dialog, Escape ปิดได้ และคืนโฟกัสให้ปุ่มที่เปิด
+- ตรวจฟอนต์ workflow / ข้อมูลผู้ป่วย 15px ขึ้นไป และช่องกรอก 16px
+- ตรวจหน้าไม่ล้นแนวนอนทั้ง 4 ขนาด และเมื่อปรับตัวอักษรเป็น 200% บน desktop
+- ตรวจโหมด reduced motion และการเข้าถึงช่องค้นหา ER
+- ความต่างสีคู่หลักที่วัดได้: เนื้อหา 11.64:1, ข้อความรอง 5.77:1, ปุ่มมิ้น 8.11:1, ตัวจับเวลา 7.98:1, ข้อความผิดพลาด 6.30:1 ไม่ใช่การรับรอง WCAG ทุกเกณฑ์
+- ลบบล็อกตัวอย่างค่าการเชื่อมต่อ HOSxP ออกจาก README ตามคำขอ
 
 ใช้ข้อมูลสมมติทั้งหมด ยังไม่ได้ตรวจ HOSxP จริง, Google Apps Script deployment จริง, AI server จริง หรือรูปแบบเอกสารกับผู้ใช้งานโรงพยาบาล ต้องตรวจส่วนเหล่านี้ในสภาพแวดล้อมจริงก่อนใช้งาน
