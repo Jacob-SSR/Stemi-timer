@@ -1,0 +1,175 @@
+# STEMI Fast Track · Next.js + TypeScript
+
+เขียนหน้า Timer, Dashboard, แบบฟอร์ม และ API ใหม่ด้วย **Next.js App Router + React + TypeScript strict** จาก `stemi-timer.zip` ที่ให้มา ไม่ต้องติดตั้ง PHP, XAMPP หรือ Apache เพื่อรันแอป
+
+## เริ่มทดลอง
+
+ต้องมี **Node.js 22.13 ขึ้นไป** แนะนำ Node.js 24 LTS
+
+```powershell
+npm ci
+Copy-Item .env.example .env.local
+npm run dev
+```
+
+เปิด http://127.0.0.1:3000 (โหมดตัวอย่างเป็นค่าเริ่มต้น) ใช้ข้อมูลสมมติ ไม่ต้องเชื่อมฐานข้อมูลก่อน
+
+Linux ใช้ `cp .env.example .env.local` แทน `Copy-Item`
+
+```powershell
+npm run typecheck
+npm test
+npm run build
+npm start
+```
+
+ใช้ webpack ใน scripts เพื่อให้ build ได้บน Windows ที่ไม่อนุญาตสร้าง junction ของ Turbopack รุ่นที่ติดตั้งไว้ มี `package-lock.json` และ pin เวอร์ชันแพ็กเกจแล้ว
+
+## ฟังก์ชัน
+
+- จอนับ Door → Now และ Onset → Now แสดงวินาที ซิงก์เวลาเซิร์ฟเวอร์ทุก 10 วินาที
+- 10 ขั้นตอน Fast Track พร้อมเป้าหมาย แก้เวลาจริงได้ และคืนเวลา HOSxP โดยล้างเวลาแก้ไข
+- Door-to-EKG, Door-to-Needle, DIDO, Door-to-Troponin
+- **Needle ใช้เวลาที่ผู้ใช้กดให้ยาจริงเท่านั้น** เวลาสั่งยา HOSxP แสดงเป็นข้อมูลอ้างอิง
+- เลือกจากรายชื่อ ER, เพิ่มก่อนลงทะเบียน, ผูก VN, เพิ่มอัตโนมัติเมื่อพบ ICD I21/I22
+- ข้อมูลผู้ป่วย แนวทางรักษา ปลายทาง ให้/ไม่ให้ SK และเหตุผล
+- หมายเหตุพร้อมเวลาและแถบข้อความสำคัญ แสดงตรงกันทุกจอหลังซิงก์
+- ปิดเคส / เปิดกลับ, แบบฟอร์ม Refer, ผลหลังส่งต่อ และ RCA (เหตุการณ์, CDP, Voice of Staff, 5 Tiers, 5 Whys, มาตรการ, ทีม)
+- KPI ร้อยละผ่านเป้า / median, กราฟ Door-to-EKG รายเดือน และมาตรการ RCA ที่ค้าง
+- ตัวกรองวันที่ แนวทาง และค้นหาในทะเบียนเคส
+- ส่งออก Word จริง (.docx), Excel จริง (.xlsx พร้อมสูตร KPI), CSV, PowerPoint RCA (.pptx)
+- พิมพ์ / บันทึกเป็น PDF ผ่านเบราว์เซอร์
+- คัดลอกสรุป LINE / HOSxP พร้อมตัวเลือกซ่อนชื่อและ HN (ไม่ส่งข้อความอัตโนมัติ)
+- คิว Google Sheet เก็บถาวร ส่งซ้ำแบบ upsert `case_id`
+- เครื่องมืออ่าน EKG เดิมรองรับรูป/PDF และ AI ภายใน พร้อมรับผลเข้าเคสและแพทย์ยืนยัน
+- รหัสเข้าใช้งานฝั่งเซิร์ฟเวอร์ด้วย HttpOnly cookie; บังคับตั้งรหัสเมื่อเปิดโหมดจริง
+
+## สถาปัตยกรรม
+
+```text
+Browser (React / TypeScript)
+   ↓ /api/stemi · Next.js Route Handler (TypeScript / Node.js)
+   ├─ MySQL HOSxP → SELECT เท่านั้น
+   ├─ SQLite ของแอป → เคส เวลาแก้ไข หมายเหตุ Refer Outcome RCA คิว Sheet
+   └─ Google Apps Script → ไม่บังคับ
+```
+
+ข้อมูลแอปอยู่ที่ `data/stemi.sqlite` นอก `public/` ใช้ SQLite ที่มากับ Node.js ไม่ต้องติดตั้ง database server เพิ่ม เปิด WAL และ transaction เพื่อประสานหลายจอ ไม่ใช้ `localStorage` เก็บผู้ป่วย
+
+ใช้ Node server ที่มี persistent disk ภายในโรงพยาบาลหนึ่งชุด ไม่เหมาะกับ static export หรือ serverless ที่ดิสก์หาย/มีหลาย instance แยกดิสก์
+
+## เชื่อม HOSxP จริง
+
+แก้ `.env.local` แล้ว restart server:
+
+```dotenv
+STEMI_DEMO=false
+STEMI_ACCESS_TOKEN=ใส่รหัสเข้าใช้งานแบบยาวที่โรงพยาบาลกำหนด
+HOSXP_HOST=192.168.1.10
+HOSXP_PORT=3306
+HOSXP_DATABASE=hos
+HOSXP_USER=stemi_ro
+HOSXP_PASSWORD=ใส่รหัสจริง
+HOSXP_CHARSET=TIS620
+HOSXP_EKG_CODES=3000123
+HOSXP_LYTIC_CODES=1000456
+HOSXP_LAB_ITEMS={"Troponin":["1101"],"CK-MB":["1102"],"K":["201"],"Cr":["305"]}
+HOSPITAL_NAME=โรงพยาบาลพลับพลาชัย จังหวัดบุรีรัมย์
+REFER_HOSPITALS=โรงพยาบาลบุรีรัมย์ (Cath lab)|โรงพยาบาลอื่น
+```
+
+รหัสรายการในตัวอย่างต้องเปลี่ยนให้ตรงโรงพยาบาล `Troponin` เป็นชื่อที่ใช้วัดตัวชี้วัดผล Lab ขณะนี้ หากภาษาไทยเพี้ยนให้ทดลอง `HOSXP_CHARSET=UTF8` ตาม charset จริงของฐาน
+
+ให้ DBA สร้าง user สิทธิ์ **SELECT เท่านั้น** สำหรับ `ovst`, `er_regist`, `patient`, `opdscreen`, `ovstdiag`, `opitemrece`, `referout`, `lab_head`, `lab_order`, `thaiaddress`, `pttype` จำกัด host เป็น IP แอปจริง ตามหลักในเอกสารต้นฉบับ ไม่ใช้ user root
+
+SQL อยู่ใน `src/lib/hosxp.ts` ปรับให้ตรง schema ของโรงพยาบาลได้ API ไม่รับ SQL จากเบราว์เซอร์ ใช้ placeholders สำหรับ VN และรหัสรายการ ดึงเฉพาะ ER ย้อนหลัง 24 ชั่วโมง
+
+หลังเชื่อมแล้วเปิด **ตั้งค่าระบบ → ตรวจการเชื่อมต่อ HOSxP** ตรวจ:
+
+1. ตารางครบ และ `missing` ว่าง
+2. `serverNow` กับ `nodeNow` ใกล้กัน
+3. จำนวน EKG / Lab ใน sample ไม่เป็นศูนย์เมื่อมีรายการจริง
+4. ตัวอย่างชื่อภาษาไทยอ่านถูกต้อง
+5. ทดลองเลือกผู้ป่วย กดเวลา อัปเดตอีกจอ และส่งออกเอกสาร
+
+ระบบไม่เขียนข้อมูลลง HOSxP ทั้งการแก้เวลา การบันทึก Refer หรือการคัดลอกสรุป
+
+## เปิดใช้งานบนเครือข่ายโรงพยาบาล
+
+`npm start` ฟังเฉพาะ `127.0.0.1:3000` เป็นค่าเริ่มต้น วาง reverse proxy ของโรงพยาบาลข้างหน้า ใช้ HTTPS และจำกัด IP ที่ proxy/firewall ตัวอย่างที่ `deploy/nginx.conf.example` ต้องปรับ subnet กับใบรับรองจริง ไม่ได้เชื่อถือ `X-Forwarded-For` ที่ผู้ใช้ส่งมาตรง ๆ เพื่ออนุญาตเข้าแอป
+
+เปิดจากจอ ER ผ่าน URL ของ proxy ค่ารหัส HOSxP/Sheet อยู่ฝั่งเซิร์ฟเวอร์เท่านั้น การล็อกอินเป็นรหัสร่วม ยังไม่มีบัญชีรายบุคคล บทบาท หรือ audit log ระบุตัวเจ้าหน้าที่
+
+ตั้ง process supervisor / Windows service ให้รัน `npm start` เมื่อบูตเครื่อง และกำหนด working directory เป็นโฟลเดอร์โปรเจกต์นี้
+
+## Google Sheet (ไม่บังคับ)
+
+ใช้ Apps Script ใน `integrations/Code.gs` ตั้ง `TOKEN` ให้ตรง `GSHEET_TOKEN` แล้ว deploy Web App จากนั้นตั้ง:
+
+```dotenv
+GSHEET_URL=https://script.google.com/macros/s/DEPLOYMENT_ID/exec
+GSHEET_TOKEN=รหัสเดียวกับ Apps Script
+GSHEET_SEND_PII=false
+```
+
+ค่าเริ่มต้นไม่ส่งชื่อ ที่อยู่ ประวัติ หมายเหตุ และรายละเอียดติดตามแบบข้อความอิสระ แต่ยังส่ง HN/VN, สิทธิ์, ตัวชี้วัด และข้อมูลทบทวนบางส่วน ต้องกำหนดผู้เข้าถึงชีตให้เหมาะสม
+
+ปิดเคสแล้วจะส่งทันที ถ้าส่งไม่สำเร็จจะเก็บคิวใน SQLite และลองใหม่ทุก 1 นาที **ขณะที่มีจอเปิดและ polling อยู่** ไม่ใช่ background scheduler เมื่อปิดทุกจอ มีปุ่มส่งซ้ำในทะเบียนเคส คิวลบเฉพาะรายการที่ Apps Script ตอบรับและไม่ได้ถูกแก้ระหว่างส่ง
+
+## EKG / AI ภายใน
+
+`public/tools/ekg.html` เป็นเครื่องมือ HTML/JavaScript เดิมที่คงไว้สำหรับการครอปภาพ อ่าน PDF และเรียก AI; หน้าเว็บหลัก ฟอร์ม และ API ใหม่เป็น TypeScript เครื่องมือนี้แสดงใน iframe บน origin เดียวกัน ตรวจ origin, source และ case ID ก่อนรับผล
+
+ตั้ง URL / โมเดลในหน้าอ่าน EKG ให้ชี้เซิร์ฟเวอร์ AI ที่โรงพยาบาลอนุญาต การเรียก AI เกิดจากเครื่องลูก ไม่ใช่ Next server จึงต้องเข้าถึง AI ได้และตั้ง CORS/HTTPS ให้สอดคล้องกับเว็บแอป ไม่ได้รวมโมเดล AI หรือส่งภาพไปบริการภายนอกโดยอัตโนมัติ
+
+## สำรองข้อมูล
+
+ข้อมูลหลักเป็น SQLite แทน `data/state.json` เดิม **ไม่มีการนำเข้า state.json เดิมอัตโนมัติ** ZIP ที่ได้รับไม่มีข้อมูลเคสจริง หากมีข้อมูลใช้งานเดิม ให้เก็บสำรองและทำ migration ก่อนสลับระบบ
+
+สำรองแบบ online consistent snapshot ได้ด้วย:
+
+```powershell
+npm run backup -- ./backups/stemi-2026-11-09.sqlite
+```
+
+ตั้ง `STEMI_DATA_DIR` ใน environment ของคำสั่งให้ตรงกับแอปหากไม่ได้ใช้ `./data` สคริปต์ไม่เขียนทับ backup เดิม การกู้คืน: หยุดแอป สำรองข้อมูลปัจจุบัน ย้ายชุดฐานปัจจุบันรวมไฟล์ `-wal`/`-shm` ออก แล้วคัดลอก snapshot เป็น `data/stemi.sqlite` จากนั้นเริ่มแอป
+
+## ความต่างจากชุด PHP เดิม
+
+- หน้าจอออกแบบใหม่ ไม่ได้ห่อ HTML เดิมเป็นหน้า Next.js
+- ใช้ SQLite transaction แทน JSON file lock
+- Word และ PowerPoint สร้างรูปแบบใหม่ ไม่ใช่ template RCA 15 สไลด์ของโรงพยาบาลเดิม
+- Dashboard รุ่นนี้มี KPI หลัก กราฟรายเดือน EKG และมาตรการค้าง ยังไม่มีกราฟย่อยทุกชนิด/เปรียบเทียบช่วงก่อนหน้าเหมือนชุดเดิม
+- หมายเหตุสำคัญขึ้นแถบแจ้งเตือน ยังไม่มีเสียงแจ้งเตือนหลายจอ
+- ไม่มีการส่ง LINE อัตโนมัติ ใช้คัดลอกข้อความ และไม่ได้เชื่อม API HOSxP สำหรับเขียนข้อมูล
+- ยังไม่ได้ทดสอบกับ HOSxP, Google Sheet หรือ AI จริงของโรงพยาบาล
+
+## ทดสอบผ่านเบราว์เซอร์
+
+ติดตั้ง Microsoft Edge แล้วเปิด dev server ที่พอร์ต 3100 ก่อน:
+
+```powershell
+npm run dev -- --port 3100
+# อีก terminal:
+npx playwright test
+```
+
+ใช้ฐานโหมดตัวอย่างสำหรับทดสอบ เพราะ browser test จะเพิ่มและปิดเคสทดสอบได้ กำหนด `STEMI_DATA_DIR` แยกก่อนเริ่ม dev server
+
+## โครงสร้างโค้ด
+
+```text
+src/app/                 Next.js pages, CSS, API Route Handler
+src/components/          React TypeScript UI และแบบฟอร์ม
+src/lib/model.ts         ชนิดข้อมูล ตัวชี้วัด เวลาไทย
+src/lib/service.ts       validation และคำสั่งบันทึกฝั่งเซิร์ฟเวอร์
+src/lib/hosxp.ts         MySQL SELECT-only adapter และข้อมูลสมมติ
+src/lib/store.ts         SQLite transaction
+src/lib/export.ts        Office และ CSV exports
+src/lib/sheets.ts        คิว Google Sheet
+tests/                   core tests และ browser workflow
+public/tools/            เครื่องมือ EKG/PDF เดิม
+integrations/Code.gs     Google Apps Script เดิม
+```
+
+Next.js App Router อ้างอิง [เอกสารติดตั้งอย่างเป็นทางการ](https://nextjs.org/docs/app/getting-started/installation) ส่วนเป้าหมายและ workflow ใช้ค่าจาก ZIP ต้นฉบับ ไม่ได้ปรับคำแนะนำทางคลินิกขึ้นใหม่

@@ -1,0 +1,704 @@
+<!doctype html><html lang="th"><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>อ่าน EKG พลับพลาชัย</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bai+Jamjuree:wght@600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: tracing on the left like a clipboard, the 6-step reading sheet on the right; stacks on phones */
+:root{
+  --bg:#f6f3f4; --surface:#ffffff; --ink:#1e1a1c; --muted:#675d63; --line:#e4dade;
+  --accent:#b3123f; --accent-soft:#fbe7ed;
+  --crit:#c62828; --crit-soft:#fdecec; --warn:#9a5b00; --warn-soft:#fff3df; --ok:#2e6b34; --ok-soft:#e8f4e8;
+  --display:"Bai Jamjuree","IBM Plex Sans Thai",system-ui,sans-serif;
+  --body:"IBM Plex Sans Thai",system-ui,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141113; --surface:#1e1a1c; --ink:#f2ebef; --muted:#a99ca3; --line:#382f34;
+  --accent:#ff7097; --accent-soft:#3a1d27;
+  --crit:#ff8a80; --crit-soft:#3b1a1a; --warn:#ffc266; --warn-soft:#352812; --ok:#8fd694; --ok-soft:#1b2e1c; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141113; --surface:#1e1a1c; --ink:#f2ebef; --muted:#a99ca3; --line:#382f34;
+  --accent:#ff7097; --accent-soft:#3a1d27;
+  --crit:#ff8a80; --crit-soft:#3b1a1a; --warn:#ffc266; --warn-soft:#352812; --ok:#8fd694; --ok-soft:#1b2e1c; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.wrap{max-width:1280px;margin:0 auto;display:grid;gap:20px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:8px 20px}
+h1{font-family:var(--display);font-size:clamp(1.5rem,3.5vw,2rem);margin:0;line-height:1.15;text-wrap:balance}
+h1 span{color:var(--accent)}
+.sub{color:var(--muted);margin:2px 0 0;font-size:.92rem}
+.note{font-size:.82rem;color:var(--muted);max-width:42ch}
+.grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;min-width:0}
+.ph{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.ph h2{font-family:var(--display);font-size:1.05rem;margin:0 auto 0 0}
+.label{font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+button,.btn{font:inherit;font-size:.88rem;border:1px solid var(--line);background:var(--surface);color:var(--ink);
+  border-radius:7px;padding:6px 11px;cursor:pointer;line-height:1.3;display:inline-flex;align-items:center;gap:6px}
+button:hover,.btn:hover{border-color:var(--muted)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,.btn:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--surface);font-weight:600}
+button.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:600}
+button:disabled{opacity:.5;cursor:not-allowed}
+input,select,textarea{font:inherit;font-size:.9rem;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 8px;min-width:0}
+input[type=number]{width:5.5em;font-family:var(--mono)}
+textarea{width:100%;resize:vertical;min-height:58px}
+.drop{margin:14px;border:1.5px dashed var(--line);border-radius:9px;padding:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop p{margin:0;color:var(--muted);font-size:.88rem}
+.pick{position:relative;display:inline-flex;overflow:hidden;border-radius:7px}
+.pick .btn{background:var(--accent);border-color:var(--accent);color:var(--surface);font-weight:600;padding:9px 16px;font-size:.95rem}
+#file{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:40px}
+.pick:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.toolbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:0 14px 10px}
+.toolbar .sep{width:1px;height:22px;background:var(--line);margin:0 4px}
+.viewer{margin:0 14px;overflow:auto;border:1px solid var(--line);border-radius:6px;background:#fff;max-height:72vh;touch-action:pan-x pan-y}
+#cv{display:block;cursor:crosshair}
+.status{padding:10px 14px 14px;font-size:.86rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 16px}
+.status b{color:var(--ink);font-family:var(--mono);font-weight:500}
+.meas{display:grid;gap:6px;padding:0 14px 14px}
+.mrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;font-family:var(--mono);font-size:.85rem;padding:6px 9px;border-radius:6px;background:var(--bg)}
+.mrow .tag{font-family:var(--body);font-weight:600;color:var(--accent)}
+.mrow button{font-size:.76rem;padding:2px 8px}
+.badge{font-size:.72rem;font-weight:600;padding:2px 8px;border-radius:99px;background:var(--warn-soft);color:var(--warn)}
+.tabs{display:flex;gap:4px;padding:10px 14px 0;border-bottom:1px solid var(--line)}
+.tabs button{border:none;border-bottom:2px solid transparent;border-radius:0;padding:8px 10px;color:var(--muted);background:none}
+.tabs button.on{color:var(--accent);border-bottom-color:var(--accent);background:none}
+.body{padding:14px;display:grid;gap:14px}
+.ctx{display:grid;gap:8px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.out{display:grid;gap:12px}
+.urg{border-radius:8px;padding:10px 12px;display:grid;gap:4px}
+.urg.critical{background:var(--crit-soft);color:var(--crit)}
+.urg.urgent{background:var(--warn-soft);color:var(--warn)}
+.urg.routine{background:var(--ok-soft);color:var(--ok)}
+.urg strong{font-family:var(--display);font-size:1.05rem}
+.urg ul{margin:0;padding-left:1.2em;color:var(--ink)}
+.step{display:grid;grid-template-columns:2rem minmax(0,1fr);gap:4px 10px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.step .n{font-family:var(--mono);font-size:.8rem;color:var(--surface);background:var(--ink);border-radius:50%;width:1.6rem;height:1.6rem;display:grid;place-items:center;margin-top:2px}
+.step h3{margin:0;font-size:.95rem;font-weight:600}
+.step p{margin:0;color:var(--ink);font-size:.9rem;overflow-wrap:anywhere}
+.step .v{font-family:var(--mono);color:var(--accent)}
+.imp{background:var(--bg);border-radius:8px;padding:10px 12px}
+.imp ul{margin:4px 0 0;padding-left:1.2em}
+.caveat{font-size:.8rem;color:var(--muted)}
+.raw{white-space:pre-wrap;font-family:var(--mono);font-size:.8rem;color:var(--muted);max-height:240px;overflow:auto;background:var(--bg);padding:10px;border-radius:6px}
+.calc{border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:grid;gap:8px}
+.calc h3{margin:0;font-size:.95rem;display:flex;gap:8px;align-items:baseline}
+.calc h3 .n{font-family:var(--mono);color:var(--accent);font-size:.82rem}
+.res{font-family:var(--mono);font-size:.9rem;padding:6px 9px;border-radius:6px;background:var(--bg)}
+.res.bad{background:var(--crit-soft);color:var(--crit)}
+.res.mid{background:var(--warn-soft);color:var(--warn)}
+.leads{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px}
+.leads label{display:flex;align-items:center;justify-content:center;gap:3px;font-family:var(--mono);font-size:.8rem;border:1px solid var(--line);border-radius:6px;padding:4px 0;cursor:pointer}
+.leads input{margin:0}
+.leads label:has(input:checked){background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.ref{font-size:.82rem;color:var(--muted);margin:0}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg button{border:none;border-radius:0;padding:5px 10px}
+.seg button+button{border-left:1px solid var(--line)}
+.spin{width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:sp 0.9s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}}
+footer{font-size:.8rem;color:var(--muted)}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>อ่าน <span>EKG</span></h1>
+      <p class="sub">อัปโหลด PDF / JPEG / PNG · วัดด้วยคาลิเปอร์ · แปลผล 6 ขั้นตอน (Rate · Rhythm · Axis · Chamber · ST-T · Interval)</p>
+    </div>
+    <p class="note">เครื่องมือช่วยตัดสินใจ ผลจาก AI ต้องได้รับการยืนยันโดยแพทย์ทุกครั้ง ไม่ใช้แทนการประเมินผู้ป่วย</p>
+  </header>
+
+  <div class="grid">
+    <!-- Tracing -->
+    <section class="panel" aria-label="ภาพคลื่นไฟฟ้าหัวใจ">
+      <div class="ph"><h2>ภาพ EKG</h2><span id="srcName" class="label">ตัวอย่าง: Lead II จำลอง</span></div>
+      <div class="drop" id="drop">
+        <p>ลากไฟล์มาวาง กดเลือกไฟล์ หรือวางภาพหน้าจอ (Ctrl+V) · PDF หลายหน้าเลือกหน้าได้</p>
+        <span class="pick"><span class="btn primaryish">เลือกไฟล์ / รูปภาพ</span><input id="file" type="file" accept="image/*,.pdf,application/pdf" aria-label="เลือกไฟล์ EKG"></span>
+      </div>
+      <div class="toolbar" style="padding-top:2px">
+        <span class="label">เคสจำลอง</span>
+        <select id="simSel" aria-label="เลือกเคสจำลอง"><option value="">เลือกเคส 12-lead จำลอง…</option></select>
+        <button id="simKey" type="button" hidden>ดูเฉลย</button>
+      </div>
+      <div class="imp" id="simAns" hidden style="margin:0 14px 10px"></div>
+      <div class="toolbar" id="pdfBar" hidden>
+        <span class="label">หน้า</span>
+        <button id="pgPrev" aria-label="หน้าก่อน">‹</button>
+        <select id="pgSel" aria-label="เลือกหน้า"></select>
+        <button id="pgNext" aria-label="หน้าถัดไป">›</button>
+        <span id="pgLoad" hidden class="spin"></span>
+      </div>
+      <div class="toolbar">
+        <div class="seg" role="group" aria-label="ซูม">
+          <button data-z="1" class="on">พอดี</button><button data-z="1.6">1.6×</button><button data-z="2.5">2.5×</button><button data-z="4">4×</button>
+        </div>
+        <span class="sep"></span>
+        <button id="mCal">ตั้งสเกล</button>
+        <label class="row" style="gap:4px;font-size:.85rem">ช่วง <input id="calN" type="number" min="1" max="50" value="5" aria-label="จำนวนช่องใหญ่ที่ใช้ตั้งสเกล"> ช่องใหญ่</label>
+        <button id="mMeas">คาลิเปอร์</button>
+        <button id="clr">ล้างการวัด</button>
+      </div>
+      <div class="toolbar">
+        <span class="label">ภาพหน้าจอ</span>
+        <button id="mCrop">ครอปเฉพาะ EKG</button>
+        <button id="enh">เพิ่มความเข้มเส้น</button>
+        <button id="rot">หมุน 90°</button>
+        <button id="reset" hidden>คืนภาพเดิม</button>
+      </div>
+      <div class="viewer" id="viewer"><canvas id="cv"></canvas></div>
+      <div class="status" id="status"></div>
+      <div class="meas" id="measList"></div>
+    </section>
+
+    <!-- Reading -->
+    <section class="panel" aria-label="การแปลผล">
+      <div class="tabs" role="tablist">
+        <button role="tab" id="tAI" class="on">AI แปลผล</button>
+        <button role="tab" id="tCalc">คำนวณ 6 ขั้น</button>
+      </div>
+
+      <div class="body" id="pAI">
+        <details class="imp" id="aiCfg">
+          <summary style="cursor:pointer"><b>ตั้งค่า AI</b> · <span id="cfgSum" class="caveat"></span></summary>
+          <div style="display:grid;gap:8px;margin-top:10px">
+            <label class="row" style="gap:6px">ระบบ <select id="cApi"><option value="claude">Claude (เปิดในหน้า claude.ai · ข้อมูลออกนอก รพ.)</option><option value="ollama">Ollama</option><option value="openai">OpenAI-compatible (vLLM / LM Studio / llama.cpp)</option><option value="openwebui">Open WebUI</option></select></label>
+            <label class="row lai" style="gap:6px">ที่อยู่เซิร์ฟเวอร์ <input id="cBase" type="text" style="flex:1;min-width:200px" autocomplete="off"></label>
+            <label class="row lai" style="gap:6px">โมเดล (ต้องอ่านภาพได้) <input id="cModel" list="cList" type="text" style="flex:1;min-width:160px" placeholder="เช่น qwen2.5vl:7b, gemma3:12b" autocomplete="off"><datalist id="cList"></datalist></label>
+            <label class="row lai" style="gap:6px">API key (ถ้ามี) <input id="cKey" type="password" style="flex:1;min-width:160px" autocomplete="off"></label>
+            <label class="row" style="gap:6px"><input id="cMulti" type="checkbox"> ส่งภาพขยายซ้าย/ขวาเพิ่ม (แม่นขึ้นแต่ช้าลง)</label>
+            <label class="row lai" style="gap:6px">รอได้นานสุด <input id="cTo" type="number" min="30" max="1800" style="width:6em"> วินาที</label>
+            <div class="row lai"><button id="cTest" type="button">ทดสอบการเชื่อมต่อ</button><span id="cTestOut" class="caveat"></span></div>
+          </div>
+        </details>
+        <div class="ctx">
+          <span class="label">ข้อมูลผู้ป่วย (ช่วยให้แปลผลแม่นขึ้น)</span>
+          <div class="row">
+            <select id="sex" aria-label="เพศ"><option value="">เพศ</option><option value="ชาย">ชาย</option><option value="หญิง">หญิง</option></select>
+            <input id="age" type="number" min="0" max="120" placeholder="อายุ" aria-label="อายุ">
+          </div>
+          <textarea id="hx" placeholder="อาการ/ประวัติ เช่น เจ็บหน้าอกร้าวไปแขนซ้าย 1 ชม., BP 90/60, K 6.8, ทานยา digoxin"></textarea>
+        </div>
+        <div class="row">
+          <button id="go" class="primary">วิเคราะห์ภาพนี้</button>
+          <button id="stop" hidden>หยุด</button>
+          <span id="aiState" class="caveat"></span>
+        </div>
+        <div class="imp" id="fallback" hidden>
+          <span class="label">ทางเลือกเมื่อ Local AI ใช้ไม่ได้</span>
+          <p class="caveat" style="margin:4px 0 8px">กดคัดลอกคำสั่ง แล้วไปที่หน้าแชตของ AI โรงพยาบาล (เช่น Open WebUI) แนบภาพ EKG และวางคำสั่งนี้ จะได้ผลอ่าน 6 ขั้นตอนแบบเดียวกัน</p>
+          <button id="copyPrompt">คัดลอกคำสั่ง</button>
+          <textarea id="promptBox" rows="5" hidden aria-label="คำสั่งสำหรับแชต"></textarea>
+        </div>
+        <div class="out" id="aiOut">
+          <p class="caveat">ภาพที่แสดงอยู่ (หรือหน้าที่เลือกใน PDF) จะถูกส่งไปที่ AI ที่เลือกในการตั้งค่า (Local AI = อยู่ในเครือข่าย รพ. ไม่ออกข้างนอก) ให้อ่านตามลำดับ 6 ขั้นตอน พร้อมแยกภาวะเร่งด่วน เช่น STEMI / STEMI equivalent, VT/VF, Complete heart block, Hyperkalemia. ถ้าเป็นภาพหน้าจอที่มี EKG หลายแผ่น ให้กด “ครอปเฉพาะ EKG” ลากกรอบเลือกแผ่นที่ต้องการก่อน และถ้าเส้นจางให้กด “เพิ่มความเข้มเส้น”</p>
+        </div>
+      </div>
+
+      <div class="body" id="pCalc" hidden>
+        <div class="calc">
+          <h3><span class="n">1</span>Rate</h3>
+          <div class="row"><span class="seg" role="group" aria-label="วิธีคำนวณ"><button data-r="big" class="on">ช่องใหญ่ R-R</button><button data-r="small">ช่องเล็ก R-R</button><button data-r="count">นับ QRS 10 วิ</button></span></div>
+          <div class="row"><input id="rIn" type="number" step="0.1" min="0" value="4" aria-label="ค่า"><span id="rHint" class="caveat">300 ÷ จำนวนช่องใหญ่</span></div>
+          <div class="res" id="rOut"></div>
+        </div>
+        <div class="calc">
+          <h3><span class="n">2</span>Rhythm (tachycardia &gt; 100)</h3>
+          <div class="row">
+            <span class="seg" role="group" aria-label="ความกว้าง QRS"><button data-q="narrow" class="on">QRS แคบ &lt; 3 ช่องเล็ก</button><button data-q="wide">QRS กว้าง</button></span>
+            <span class="seg" role="group" aria-label="ความสม่ำเสมอ"><button data-g="reg" class="on">Regular</button><button data-g="irr">Irregular</button></span>
+          </div>
+          <div class="res" id="rhOut"></div>
+        </div>
+        <div class="calc">
+          <h3><span class="n">3</span>QRS axis</h3>
+          <div class="row">
+            <span>Lead I</span><span class="seg" role="group" aria-label="Lead I"><button data-a1="+" class="on">+</button><button data-a1="-">−</button></span>
+            <span>aVF</span><span class="seg" role="group" aria-label="aVF"><button data-a2="+" class="on">+</button><button data-a2="-">−</button></span>
+          </div>
+          <div class="res" id="axOut"></div>
+        </div>
+        <div class="calc">
+          <h3><span class="n">4</span>LVH (voltage)</h3>
+          <div class="row"><span>S ใน V1</span><input id="sv1" type="number" min="0" value="12" aria-label="S V1 mm"><span>+ R ใน V5/V6</span><input id="rv5" type="number" min="0" value="20" aria-label="R V5 mm"><span class="caveat">mm</span></div>
+          <div class="res" id="lvhOut"></div>
+          <p class="ref">P wave: สูง &gt; 2.5 mm = RAE · กว้าง &gt; 120 ms = LAE</p>
+        </div>
+        <div class="calc">
+          <h3><span class="n">5</span>ST elevation — เลือก lead ที่ยก</h3>
+          <div class="leads" id="leads"></div>
+          <div class="res" id="stOut"></div>
+          <p class="ref">เกณฑ์ ≥ 1 mm ใน ≥ 2 lead ติดกัน · V2–V3: ชาย &lt; 40 ปี 2.5 mm, ≥ 40 ปี 2 mm, หญิง 1.5 mm</p>
+        </div>
+        <div class="calc">
+          <h3><span class="n">6</span>QTc (Bazett)</h3>
+          <div class="row"><span>QT</span><input id="qt" type="number" min="0" value="400" aria-label="QT ms"><span>ms · RR</span><input id="rr" type="number" min="0" value="800" aria-label="RR ms"><span>ms</span>
+            <select id="qsex" aria-label="เพศ"><option value="m">ชาย</option><option value="f">หญิง</option></select></div>
+          <div class="res" id="qtOut"></div>
+          <p class="ref">ใช้ค่าจากคาลิเปอร์ได้ด้วยปุ่ม “ใช้เป็น QT / RR”</p>
+        </div>
+      </div>
+    </section>
+  </div>
+  <footer>เกณฑ์อ้างอิงจาก Basic EKG in Emergency Care for Nurse (ผศ.นพ.เวฬุวัฒน์ เทียนประทาน, รามาธิบดี 2566) และ AHA ACLS 2020</footer>
+</div>
+
+<script src="pdf.min.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const cv = $("cv"), ctx = cv.getContext("2d");
+let src = null;          // canvas holding the raster
+let zoom = 1, mode = null, pts = [], pxPerMm = null, meas = [], pdf = null, isSample = false;
+
+/* ---------- sample tracing (synthetic Lead II, 75 bpm) ---------- */
+function makeSample(){
+  const ppm = 8, H = 40*ppm; // 2000 px = 250 mm = 10 s at 25 mm/s
+  const c = document.createElement("canvas"); c.width = 2000; c.height = H;
+  const g = c.getContext("2d"); g.fillStyle="#fff"; g.fillRect(0,0,c.width,H);
+  for(let x=0;x<=c.width;x+=ppm){g.strokeStyle=(x/ppm)%5===0?"#f0a0b4":"#fadde5";g.lineWidth=(x/ppm)%5===0?1.4:0.7;g.beginPath();g.moveTo(x,0);g.lineTo(x,H);g.stroke();}
+  for(let y=0;y<=H;y+=ppm){g.strokeStyle=(y/ppm)%5===0?"#f0a0b4":"#fadde5";g.lineWidth=(y/ppm)%5===0?1.4:0.7;g.beginPath();g.moveTo(0,y);g.lineTo(c.width,y);g.stroke();}
+  const gs=(t,m,a,w)=>a*Math.exp(-((t-m)**2)/(2*w*w));
+  const v=t=>{const b=((t%0.8)+0.8)%0.8;return gs(b,.10,.15,.022)+gs(b,.225,-.10,.008)+gs(b,.25,1.25,.010)+gs(b,.272,-.28,.009)+gs(b,.50,.32,.042);};
+  const base=H*0.62, pps=25*ppm; g.strokeStyle="#111"; g.lineWidth=2; g.beginPath();
+  for(let x=0;x<c.width;x++){const y=base-v(x/pps-0.05)*10*ppm; x?g.lineTo(x,y):g.moveTo(x,y);} g.stroke();
+  g.fillStyle="#111"; g.font="bold 26px sans-serif"; g.fillText("II",14,36);
+  g.font="16px monospace"; g.fillText("25 mm/s  10 mm/mV  (ตัวอย่างจำลอง)",60,34);
+  return {c, ppm};
+}
+
+/* ---------- drawing ---------- */
+function draw(){
+  if(!src) return;
+  cv.width = src.width; cv.height = src.height;
+  ctx.drawImage(src,0,0);
+  const lw = Math.max(2, src.width/700), r = lw*3;
+  const mark=(p,col)=>{ctx.fillStyle=col;ctx.beginPath();ctx.arc(p.x,p.y,r,0,7);ctx.fill();
+    ctx.strokeStyle=col;ctx.lineWidth=lw*0.6;ctx.setLineDash([lw*3,lw*2]);ctx.beginPath();ctx.moveTo(p.x,0);ctx.lineTo(p.x,src.height);ctx.stroke();ctx.setLineDash([]);};
+  meas.forEach((m,i)=>{const col="rgba(21,101,192,.9)";mark(m.a,col);mark(m.b,col);
+    ctx.strokeStyle=col;ctx.lineWidth=lw;ctx.beginPath();ctx.moveTo(m.a.x,m.a.y);ctx.lineTo(m.b.x,m.b.y);ctx.stroke();
+    ctx.font=`600 ${lw*7}px sans-serif`;ctx.fillStyle=col;ctx.fillText("M"+(i+1),Math.min(m.a.x,m.b.x)+lw*3,Math.min(m.a.y,m.b.y)-lw*4);});
+  pts.forEach(p=>mark(p, mode==="cal"?"rgba(46,125,50,.95)":"rgba(179,18,63,.95)"));
+  if(cropR){ const {x,y,w,h}=normR(cropR); ctx.fillStyle="rgba(0,0,0,.35)";
+    ctx.fillRect(0,0,src.width,y); ctx.fillRect(0,y+h,src.width,src.height-y-h); ctx.fillRect(0,y,x,h); ctx.fillRect(x+w,y,src.width-x-w,h);
+    ctx.strokeStyle="rgba(179,18,63,.95)"; ctx.lineWidth=lw; ctx.strokeRect(x,y,w,h); }
+  sizeCanvas();
+}
+let cropR=null, orig=null, origName="";
+const normR=r=>({x:Math.min(r.x0,r.x1),y:Math.min(r.y0,r.y1),w:Math.abs(r.x1-r.x0),h:Math.abs(r.y1-r.y0)});
+function toPx(e){const r=cv.getBoundingClientRect();return {x:Math.max(0,Math.min(cv.width,(e.clientX-r.left)*cv.width/r.width)),y:Math.max(0,Math.min(cv.height,(e.clientY-r.top)*cv.height/r.height))};}
+cv.addEventListener("pointerdown",e=>{ if(mode!=="crop") return; e.preventDefault(); cv.setPointerCapture(e.pointerId); const p=toPx(e); cropR={x0:p.x,y0:p.y,x1:p.x,y1:p.y}; });
+cv.addEventListener("pointermove",e=>{ if(mode!=="crop"||!cropR||!cv.hasPointerCapture(e.pointerId)) return; const p=toPx(e); cropR.x1=p.x; cropR.y1=p.y; draw(); });
+cv.addEventListener("pointerup",e=>{ if(mode!=="crop"||!cropR) return; const {x,y,w,h}=normR(cropR); cropR=null;
+  if(w<40||h<30){ draw(); return; }
+  const c=document.createElement("canvas"); c.width=Math.round(w); c.height=Math.round(h);
+  c.getContext("2d").drawImage(src,x,y,w,h,0,0,c.width,c.height);
+  replaceSrc(c,"ครอปแล้ว"); });
+function replaceSrc(c,what){ src=c; meas=[]; pts=[]; pxPerMm=null; isSample=false; clearAI(); setMode(null);
+  $("srcName").textContent=origName+" · "+what; $("reset").hidden=false; draw(); renderMeas(); status(); }
+$("mCrop").onclick=()=>setMode(mode==="crop"?null:"crop");
+$("reset").onclick=()=>{ if(!orig) return; setSrc(orig,origName); };
+$("rot").onclick=()=>{ if(!src) return; const c=document.createElement("canvas"); c.width=src.height; c.height=src.width;
+  const g=c.getContext("2d"); g.translate(c.width,0); g.rotate(Math.PI/2); g.drawImage(src,0,0); replaceSrc(c,"หมุนแล้ว"); };
+$("enh").onclick=()=>{ if(!src) return; const c=document.createElement("canvas"); c.width=src.width; c.height=src.height;
+  const g=c.getContext("2d"); g.drawImage(src,0,0); const d=g.getImageData(0,0,c.width,c.height), a=d.data;
+  // grayscale, then stretch levels so the darkest 1% → black and the paper → white; gamma darkens faint traces
+  const L=new Uint8Array(a.length/4), hist=new Uint32Array(256);
+  for(let i=0,j=0;i<a.length;i+=4,j++){const v=(a[i]*.3+a[i+1]*.59+a[i+2]*.11)|0; L[j]=v; hist[v]++;}
+  let lo=0,acc=0; const n=L.length; while(lo<255&&(acc+=hist[lo])<n*.01) lo++;
+  let hi=255; acc=0; while(hi>lo+10&&(acc+=hist[hi])<n*.40) hi--;
+  for(let i=0,j=0;i<a.length;i+=4,j++){ let t=(L[j]-lo)/Math.max(1,hi-lo); t=Math.min(1,Math.max(0,t)); t=Math.pow(t,1.8)*255; a[i]=a[i+1]=a[i+2]=t; }
+  g.putImageData(d,0,0); replaceSrc(c,"เพิ่มความเข้มแล้ว"); };
+document.addEventListener("paste",e=>{ const f=[...(e.clipboardData?.files||[])].find(x=>/^image\/|pdf$/.test(x.type)); if(f){ e.preventDefault(); load(f); } });
+function sizeCanvas(){ const w=$("viewer").clientWidth-2; cv.style.width=(w*zoom)+"px"; cv.style.height="auto"; }
+window.addEventListener("resize", sizeCanvas);
+
+function setSrc(c, name, presetPpm){
+  src=c; orig=c; origName=name; meas=[]; pts=[]; mode=null; pxPerMm=presetPpm||null; isSample=!!presetPpm;
+  $("srcName").textContent=name; $("reset").hidden=true; setMode(null); draw(); renderMeas(); status();
+}
+function status(){
+  const s=$("status");
+  const scale = pxPerMm ? `สเกล <b>${(pxPerMm).toFixed(2)} px/mm</b> (25 mm/s · 10 mm/mV)${isSample?" ตั้งไว้แล้ว":""}` : `ยังไม่ได้ตั้งสเกล`;
+  let hint="";
+  if(mode==="crop") hint = "ลากกรอบรอบ EKG ที่ต้องการอ่าน ให้เห็นครบทุก lead และไม่ติดปุ่มหรือรูปอื่น";
+  else if(mode==="cal") hint = pts.length? "แตะจุดที่สอง" : `แตะเส้นช่องใหญ่จุดแรก แล้วแตะจุดที่ห่างไป ${$("calN").value} ช่องใหญ่`;
+  else if(mode==="meas") hint = pxPerMm ? (pts.length?"แตะจุดที่สอง":"แตะจุดเริ่ม เช่น ยอด R") : "ตั้งสเกลก่อนใช้คาลิเปอร์";
+  else hint = "ตั้งสเกลครั้งเดียวต่อภาพ แล้วใช้คาลิเปอร์วัด R-R, PR, QRS, QT";
+  const small = src && !isSample && Math.max(src.width,src.height) < 900 ? `<span class="badge">ภาพความละเอียดต่ำ ${src.width}×${src.height} px — ถ้าได้ ให้บันทึกภาพต้นฉบับแทนภาพหน้าจอ</span>` : "";
+  s.innerHTML = `<span>${scale}</span><span>${hint}</span>${small}`;
+}
+function setMode(m){ mode=m; pts=[]; cropR=null; $("mCal").classList.toggle("on",m==="cal"); $("mMeas").classList.toggle("on",m==="meas"); $("mCrop").classList.toggle("on",m==="crop");
+  cv.style.touchAction=m==="crop"?"none":""; draw(); status(); }
+$("mCal").onclick=()=>setMode(mode==="cal"?null:"cal");
+$("mMeas").onclick=()=>setMode(mode==="meas"?null:"meas");
+$("clr").onclick=()=>{meas=[];pts=[];draw();renderMeas();};
+$("calN").oninput=status;
+document.querySelectorAll("[data-z]").forEach(b=>b.onclick=()=>{zoom=+b.dataset.z;document.querySelectorAll("[data-z]").forEach(x=>x.classList.toggle("on",x===b));sizeCanvas();});
+
+cv.addEventListener("click",e=>{
+  if(!mode||!src||mode==="crop") return;
+  if(mode==="meas"&&!pxPerMm){status();return;}
+  const r=cv.getBoundingClientRect();
+  pts.push({x:(e.clientX-r.left)*cv.width/r.width, y:(e.clientY-r.top)*cv.height/r.height});
+  if(pts.length===2){
+    const [a,b]=pts;
+    if(mode==="cal"){ const n=Math.max(1,+$("calN").value||5); const d=Math.hypot(b.x-a.x,b.y-a.y); pxPerMm=d/(n*5); isSample=false; pts=[]; setMode("meas"); }
+    else { meas.push({a,b}); if(meas.length>6) meas.shift(); pts=[]; renderMeas(); }
+  }
+  draw(); status();
+});
+
+function mOf(m){ const ms=Math.abs(m.b.x-m.a.x)/pxPerMm*40; const mm=Math.abs(m.b.y-m.a.y)/pxPerMm; return {ms, mm, bpm:60000/ms}; }
+function renderMeas(){
+  const L=$("measList"); L.innerHTML="";
+  meas.forEach((m,i)=>{ const v=mOf(m); const d=document.createElement("div"); d.className="mrow";
+    d.innerHTML=`<span class="tag">M${i+1}</span><span>${v.ms.toFixed(0)} ms</span><span>${(v.ms/40).toFixed(1)} ช่องเล็ก</span><span>ถ้าเป็น R-R → ${v.bpm.toFixed(0)} /min</span><span>สูง ${v.mm.toFixed(1)} mm = ${(v.mm/10).toFixed(2)} mV</span>`;
+    const bq=document.createElement("button"); bq.textContent="ใช้เป็น QT"; bq.onclick=()=>{$("qt").value=v.ms.toFixed(0);calc();showTab("calc");};
+    const br=document.createElement("button"); br.textContent="ใช้เป็น RR"; br.onclick=()=>{$("rr").value=v.ms.toFixed(0);calc();showTab("calc");};
+    d.append(bq,br); L.append(d); });
+}
+
+/* ---------- file loading ---------- */
+const drop=$("drop");
+["dragover","dragenter"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("over");}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("over");}));
+drop.addEventListener("drop",e=>{const f=e.dataTransfer.files[0]; if(f) load(f);});
+$("file").onchange=e=>{const f=e.target.files[0]; if(f) load(f); e.target.value="";};
+
+async function load(f){
+  clearAI();
+  if(f.type==="application/pdf"||/\.pdf$/i.test(f.name)){
+    if(!window.pdfjsLib){ $("srcName").textContent="โหลดตัวอ่าน PDF ไม่สำเร็จ ลองใหม่อีกครั้ง"; return; }
+    try{
+      pdfjsLib.GlobalWorkerOptions.workerSrc="pdf.worker.min.js";
+      pdf={doc:await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise, name:f.name};
+      const sel=$("pgSel"); sel.innerHTML="";
+      for(let i=1;i<=pdf.doc.numPages;i++){const o=document.createElement("option");o.value=i;o.textContent=`${i} / ${pdf.doc.numPages}`;sel.append(o);}
+      $("pdfBar").hidden=pdf.doc.numPages<2; await showPage(1);
+    }catch(err){ $("srcName").textContent="เปิด PDF ไม่ได้ (ไฟล์อาจมีรหัสผ่านหรือเสียหาย)"; }
+  } else {
+    pdf=null; $("pdfBar").hidden=true;
+    const url=URL.createObjectURL(f); const im=new Image();
+    im.onload=()=>{ const s=Math.min(1,3200/Math.max(im.naturalWidth,im.naturalHeight));
+      const c=document.createElement("canvas"); c.width=Math.round(im.naturalWidth*s); c.height=Math.round(im.naturalHeight*s);
+      const g=c.getContext("2d"); g.fillStyle="#fff"; g.fillRect(0,0,c.width,c.height); g.drawImage(im,0,0,c.width,c.height);
+      URL.revokeObjectURL(url); setSrc(c,f.name); };
+    im.onerror=()=>{$("srcName").textContent="เปิดภาพนี้ไม่ได้ ใช้ไฟล์ JPEG หรือ PNG";};
+    im.src=url;
+  }
+}
+async function showPage(n){
+  $("pgLoad").hidden=false; $("pgSel").value=n;
+  const p=await pdf.doc.getPage(n); const v1=p.getViewport({scale:1});
+  const vp=p.getViewport({scale:Math.min(4,2600/Math.max(v1.width,v1.height))});
+  const c=document.createElement("canvas"); c.width=Math.round(vp.width); c.height=Math.round(vp.height);
+  const g=c.getContext("2d"); g.fillStyle="#fff"; g.fillRect(0,0,c.width,c.height);
+  await p.render({canvasContext:g,viewport:vp}).promise;
+  $("pgLoad").hidden=true; clearAI(); setSrc(c,`${pdf.name} · หน้า ${n}`);
+}
+$("pgSel").onchange=e=>showPage(+e.target.value);
+$("pgPrev").onclick=()=>{const n=+$("pgSel").value; if(n>1) showPage(n-1);};
+$("pgNext").onclick=()=>{const n=+$("pgSel").value; if(n<pdf.doc.numPages) showPage(n+1);};
+
+/* ---------- tabs ---------- */
+function showTab(t){ $("tAI").classList.toggle("on",t==="ai"); $("tCalc").classList.toggle("on",t==="calc"); $("pAI").hidden=t!=="ai"; $("pCalc").hidden=t!=="calc"; }
+$("tAI").onclick=()=>showTab("ai"); $("tCalc").onclick=()=>showTab("calc");
+
+/* ---------- calculators ---------- */
+let rMode="big", qw="narrow", reg="reg", a1="+", a2="+";
+const segs=(attr,set)=>document.querySelectorAll(`[data-${attr}]`).forEach(b=>b.onclick=()=>{document.querySelectorAll(`[data-${attr}]`).forEach(x=>x.classList.toggle("on",x===b));set(b.dataset[attr]);calc();});
+segs("r",v=>{rMode=v;$("rIn").value=v==="big"?4:v==="small"?20:12;}); segs("q",v=>qw=v); segs("g",v=>reg=v); segs("a1",v=>a1=v); segs("a2",v=>a2=v);
+const LEADS=["I","II","III","aVR","aVL","aVF","V1","V2","V3","V4","V5","V6"];
+LEADS.forEach(l=>{const lb=document.createElement("label");lb.innerHTML=`<input type="checkbox" value="${l}" id="ld_${l}">${l}`;$("leads").append(lb);});
+document.querySelectorAll("#pCalc input, #pCalc select").forEach(i=>i.addEventListener("input",calc));
+function setRes(id,txt,cls){const e=$(id);e.textContent=txt;e.className="res"+(cls?" "+cls:"");}
+function calc(){
+  const x=+$("rIn").value||0;
+  $("rHint").textContent=rMode==="big"?"300 ÷ จำนวนช่องใหญ่ระหว่าง R-R":rMode==="small"?"1500 ÷ จำนวนช่องเล็กระหว่าง R-R":"จำนวน QRS ใน 10 วินาที (50 ช่องใหญ่) × 6";
+  const hr=x>0?(rMode==="big"?300/x:rMode==="small"?1500/x:x*6):0;
+  setRes("rOut",hr?`HR ≈ ${hr.toFixed(0)} /min — ${hr>100?"Tachycardia":hr<60?"Bradycardia":"ปกติ 60–100"}`:"ใส่ค่าที่วัดได้",hr>150||(hr&&hr<50)?"bad":(hr>100||(hr&&hr<60))?"mid":"");
+  const rh={narrow:{reg:"Sinus tachycardia (มี P นำหน้า QRS) · SVT (ไม่เห็น P, มัก > 150) · Atrial flutter (P ฟันเลื่อย) → Unstable: Sync 50–100 J",irr:"Atrial fibrillation (ไม่เห็น P, R-R ไม่เท่ากัน) → Unstable: Sync 120–200 J biphasic"},
+    wide:{reg:"Monomorphic VT → มีชีพจร unstable: Sync 100 J · ไม่มีชีพจร: Defibrillate · พิจารณา Sine wave จาก Hyperkalemia",irr:"Polymorphic VT / Torsades de Pointes หรือ VF → Defibrillation dose (ไม่ sync)"}};
+  setRes("rhOut",rh[qw][reg],qw==="wide"?"bad":"");
+  const ax={"++":["Normal axis",""],"+-":["Possible LAD (ดู lead II: ลบ = LAD จริง)","mid"],"-+":["RAD","mid"],"--":["Extreme axis","bad"]}[a1+a2];
+  setRes("axOut",ax[0],ax[1]);
+  const lv=(+$("sv1").value||0)+(+$("rv5").value||0); setRes("lvhOut",`${lv} mm — ${lv>=35?"เข้าเกณฑ์ LVH (≥ 35 mm)":"ไม่เข้าเกณฑ์ voltage LVH"}`,lv>=35?"mid":"");
+  const s=new Set(LEADS.filter(l=>$("ld_"+l).checked)); const has=(...a)=>a.filter(l=>s.has(l)).length>=2;
+  const t=[];
+  if(has("II","III","aVF")) t.push("Inferior → RCA (85%)/LCx · reciprocal I, aVL · ทำ V3R–V4R หา RV infarct (ระวังให้ nitrate)");
+  if(has("V1","V2")) t.push("Septal → Proximal LAD");
+  if(has("V3","V4")) t.push("Anterior → LAD");
+  if(has("V5","V6")) t.push("Lateral → Distal LAD/LCx/RCA · reciprocal II, III, aVF");
+  if(has("I","aVL")) t.push("High lateral → LCx · reciprocal II, III, aVF");
+  if(s.has("aVR")) t.push("ST ยกใน aVR ± V1 ร่วมกับ ST กดหลาย lead → นึกถึง Left main / 3-vessel");
+  setRes("stOut",t.length?t.join("\n"):s.size?"ยังไม่ครบ 2 lead ติดกัน":"เลือก lead ที่มี ST elevation",t.length?"bad":"");
+  $("stOut").style.whiteSpace="pre-line";
+  const qt=+$("qt").value||0, rr=(+$("rr").value||0)/1000;
+  if(qt&&rr){const q=qt/Math.sqrt(rr), f=$("qsex").value==="f", lo=f?340:330;
+    setRes("qtOut",`QTc ≈ ${q.toFixed(0)} ms — ${q>480?"Prolonged QT (เสี่ยง TdP: ดู K, Ca, Mg, ยา)":q<lo?"Short QT (นึกถึง Hypercalcemia)":"ปกติ"}`,q>480||q<lo?"bad":"");}
+  else setRes("qtOut","ใส่ QT และ RR");
+}
+calc();
+
+/* ---------- AI reading ---------- */
+let ctl=null, sample=null;
+const inClaude=!!(window.claude&&window.claude.use);
+(async()=>{ if(!inClaude) return; try{ sample=await window.claude.use("sample"); }catch(e){ sample=null; } cfgSummary(); })();
+const CFG_KEY="ppch-ekg-localai";
+const DEF={api:inClaude?"claude":"ollama",base:"http://localhost:11434",model:"",key:"",multi:false,timeout:300};
+let cfg=Object.assign({},DEF,(()=>{try{return JSON.parse(localStorage.getItem(CFG_KEY)||"{}")}catch(e){return {}}})());
+const API={claude:{name:"Claude (เมื่อเปิดในหน้า claude.ai)",hint:""},ollama:{name:"Ollama",chat:"/api/chat",models:"/api/tags",hint:"http://IP-เซิร์ฟเวอร์:11434"},
+  openai:{name:"OpenAI-compatible (vLLM / LM Studio / llama.cpp)",chat:"/v1/chat/completions",models:"/v1/models",hint:"http://IP-เซิร์ฟเวอร์:8000"},
+  openwebui:{name:"Open WebUI",chat:"/api/chat/completions",models:"/api/models",hint:"http://IP-เซิร์ฟเวอร์:3000"}};
+if(cfg.api==="claude"&&!inClaude) cfg.api="ollama";
+function saveCfg(){try{localStorage.setItem(CFG_KEY,JSON.stringify(cfg))}catch(e){}}
+function base(){return (cfg.base||"").trim().replace(/\/+$/,"")}
+function hdrs(){const h={"Content-Type":"application/json"};if(cfg.key.trim())h.Authorization="Bearer "+cfg.key.trim();return h}
+function fillCfg(){$("cApi").value=cfg.api;$("cBase").value=cfg.base;$("cBase").placeholder=API[cfg.api].hint;$("cModel").value=cfg.model;$("cKey").value=cfg.key;$("cMulti").checked=cfg.multi;$("cTo").value=cfg.timeout;cfgSummary()}
+const ready=()=>cfg.api==="claude"?!!sample:!!(cfg.model&&base());
+function cfgSummary(){ const cl=cfg.api==="claude";
+  document.querySelectorAll(".lai").forEach(e=>e.hidden=cl);
+  $("cfgSum").textContent=cl?(sample?"Claude · ภาพถูกส่งออกนอก รพ.":inClaude?"Claude · กำลังเชื่อมต่อ…":"Claude ใช้ได้เฉพาะในหน้า claude.ai — เลือก Local AI แทน"):cfg.model?`${API[cfg.api].name} · ${cfg.model} · ${base()}`:"ยังไม่ได้ตั้งค่า";
+  $("go").disabled=!ready();
+  if(cl){ if(/ตั้งค่า/.test($("aiState").textContent)) $("aiState").textContent=""; return; }
+  if(!cfg.model) $("aiState").textContent="ตั้งค่าเซิร์ฟเวอร์และโมเดลก่อน (กด “ตั้งค่า AI”)"; else if(/ตั้งค่า/.test($("aiState").textContent)) $("aiState").textContent="";}
+["cApi","cBase","cModel","cKey","cMulti","cTo"].forEach(id=>$(id).addEventListener("change",()=>{
+  cfg.api=$("cApi").value;cfg.base=$("cBase").value.trim();cfg.model=$("cModel").value.trim();cfg.key=$("cKey").value;cfg.multi=$("cMulti").checked;cfg.timeout=Math.max(30,+$("cTo").value||300);
+  $("cBase").placeholder=API[cfg.api].hint;saveCfg();cfgSummary();}));
+function netErr(e){
+  if(e?.name==="AbortError") return "หมดเวลารอ หรือกดหยุด";
+  if(e instanceof TypeError) return "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้: ตรวจที่อยู่/พอร์ต, เครื่องนี้อยู่ในเครือข่าย รพ., และเซิร์ฟเวอร์เปิด CORS แล้ว (Ollama: ตั้ง OLLAMA_ORIGINS=* และ OLLAMA_HOST=0.0.0.0)";
+  return e?.message||String(e);
+}
+$("cTest").onclick=async()=>{
+  const out=$("cTestOut"); out.textContent="กำลังทดสอบ…";
+  try{
+    const ac=new AbortController(); setTimeout(()=>ac.abort(),10000);
+    const r=await fetch(base()+API[cfg.api].models,{headers:hdrs(),signal:ac.signal});
+    if(!r.ok) throw new Error("เซิร์ฟเวอร์ตอบ HTTP "+r.status+(r.status===401||r.status===403?" (ต้องใช้ API key)":""));
+    const j=await r.json(); const names=(j.models||j.data||[]).map(m=>m.name||m.id).filter(Boolean);
+    $("cList").innerHTML=names.map(n=>`<option value="${n.replace(/"/g,"&quot;")}">`).join("");
+    out.textContent=names.length?`เชื่อมต่อได้ · พบ ${names.length} โมเดล: ${names.slice(0,8).join(", ")}${names.length>8?" …":""}`:"เชื่อมต่อได้ แต่ไม่พบโมเดล";
+    if(!cfg.model&&names.length){const v=names.find(n=>/vl|vision|llava|gemma3|qwen2\.5vl|qwen3-vl|llama3\.2-vision|minicpm|pixtral|mistral-small/i.test(n))||names[0];$("cModel").value=v;$("cModel").dispatchEvent(new Event("change"));}
+  }catch(e){out.textContent=netErr(e);}
+};
+function noAI(why){ $("fallback").hidden=false; $("aiState").textContent=why; }
+function noAI(why){ $("go").disabled=true; $("fallback").hidden=false; $("aiState").textContent=why+" — ใช้ปุ่ม “คัดลอกคำสั่ง” แทน"; }
+function ctxNow(){ return [$("sex").value,$("age").value?$("age").value+" ปี":"",$("hx").value.trim()].filter(Boolean).join(", "); }
+
+function clearAI(){ ctl?.abort(); $("aiOut").innerHTML=""; $("aiState").textContent=""; }
+const blobOf=(c,q=.92)=>new Promise(r=>c.toBlob(r,"image/jpeg",q));
+function crop(sx,sw){ const c=document.createElement("canvas"); c.width=sw; c.height=src.height; c.getContext("2d").drawImage(src,sx,0,sw,src.height,0,0,sw,src.height); return c; }
+
+const PROMPT = ctxTxt => `คุณเป็นแพทย์เวชศาสตร์ฉุกเฉินที่อ่านคลื่นไฟฟ้าหัวใจ (EKG) ให้พยาบาลและแพทย์ในโรงพยาบาลชุมชน
+ภาพที่ 1 คือ EKG ทั้งแผ่น ภาพถัดไป (ถ้ามี) คือส่วนซ้ายและขวาของแผ่นเดียวกันที่ขยายให้เห็นรายละเอียด
+ข้อมูลผู้ป่วย: ${ctxTxt||"ไม่ระบุ"}
+ภาพมักเป็นภาพหน้าจอมือถือหรือภาพถ่ายกระดาษ: ข้ามแถบสถานะ ปุ่ม เมนู รูปภาพอื่น และข้อความที่ไม่ใช่ EKG; ถ้ามี EKG มากกว่าหนึ่งแผ่นในภาพ ให้อ่านแผ่นที่ใหญ่และครบที่สุด และระบุใน quality ว่าอ่านแผ่นไหน (เช่น "แผ่นที่ 2 จากบน"); ถ้าบาง lead ถูกบังหรือตัดขาด ให้ระบุว่า lead ใดประเมินไม่ได้ ถ้าเส้นตารางไม่ชัด ให้ประมาณจากระยะ R-R และสัดส่วนของ complex แทน และลดระดับ confidence
+
+อ่านตามลำดับ 6 ขั้นตอน ใช้เกณฑ์ต่อไปนี้ (กระดาษมาตรฐาน 25 mm/s, 10 mm/mV, 1 ช่องเล็ก = 0.04 s = 0.1 mV, 1 ช่องใหญ่ = 0.2 s):
+1) Rate: regular ใช้ 300/จำนวนช่องใหญ่ R-R หรือ 1500/ช่องเล็ก; irregular ใช้จำนวน QRS ใน 10 วินาที × 6
+2) Rhythm: sinus (P นำหน้าทุก QRS, P บวกใน I, II ลบใน aVR, PR 3–5 ช่องเล็ก), sinus tachy/brady, sinus arrhythmia, sinus pause/arrest (>3 s), atrial flutter (sawtooth), AF (irregularly irregular ไม่มี P), SVT (narrow regular มักเกิน 150 ไม่เห็น P), junctional, VT monomorphic/polymorphic (TdP), VF, asystole, paced
+3) Axis: lead I และ aVF บวก/ลบ → normal, LAD, RAD, extreme
+4) Chamber: RAE (P สูง > 2.5 mm), LAE (P กว้าง > 120 ms), LVH (S V1 + R V5/V6 ≥ 35 mm), RVH (RAD, R เด่นใน V1, S เด่นใน V5–V6)
+5) ST-T: STEMI = ST ยก ≥ 1 mm ใน ≥ 2 lead ติดกัน (V2–V3: ชาย <40 ปี 2.5 mm, ชาย ≥40 ปี 2 mm, หญิง 1.5 mm) พร้อม reciprocal; ระบุผนังและหลอดเลือด (Septal V1–V2 proximal LAD, Anterior V3–V4 LAD, Lateral V5–V6, High lateral I aVL LCx, Inferior II III aVF RCA/LCx → แนะนำทำ V3R V4R, Posterior: ST กด V1–V3 → แนะนำ V7–V9); STEMI equivalent: hyperacute T, De Winter, Wellens A/B, ST ยกใน aVR + ST กด ≥ 8 lead (left main), posterior MI, LBBB/paced ตามเกณฑ์ Sgarbossa; NSTEMI/ischemia: ST กด horizontal/downsloping ≥ 0.5 mm หรือ T inversion; pericarditis (concave diffuse + PR depression); Brugada type 1 coved V1–V2
+6) Interval: PR (1st degree > 200 ms, Mobitz I, Mobitz II, 3rd degree AV block), QRS (≥ 120 ms: RBBB/LBBB/IVCD), QTc Bazett (> 480 ms prolonged, < 330 ชาย/< 340 หญิง short)
+ภาวะอื่น: hyperkalemia (T สูงแหลมฐานแคบ ทั่วไป, P หาย, QRS กว้าง, sine wave), hypokalemia (T แบน, U wave), low voltage/electrical alternans (tamponade), S1Q3T3 (PE), ยาเกินขนาด
+
+กติกา: บรรยายเฉพาะสิ่งที่เห็นในภาพจริง ถ้าภาพไม่ชัด ไม่ครบ 12 lead หรือวัดค่าไม่ได้ ให้บอกตรง ๆ และใส่ค่าเป็น "ประเมินไม่ได้" ห้ามเดา ตัวเลขให้เป็นค่าประมาณพร้อมหน่วย ตอบเป็นภาษาไทย ใช้ศัพท์แพทย์ภาษาอังกฤษได้
+
+ตอบเป็น JSON object อย่างเดียว ตามรูปแบบนี้:
+{"quality":"คุณภาพภาพ/จำนวน lead/ความเร็วกระดาษที่เห็น","rate":"","rhythm":"","axis":"","chamber":"","st_t":"","intervals":"PR, QRS, QTc","impression":["การวินิจฉัยหลักเรียงตามความสำคัญ"],"urgency":"critical|urgent|routine","urgent_findings":["สิ่งที่ต้องแจ้งแพทย์ทันที"],"next_steps":["สิ่งที่ควรทำต่อ เช่น ทำ right-sided lead, ตรวจ K, เทียบ EKG เดิม, แนวทาง ACLS ที่เกี่ยวข้อง"],"confidence":"high|medium|low","limits":"ข้อจำกัดของการอ่านครั้งนี้"}`;
+
+
+$("go").onclick=async()=>{
+  if(!src) return;
+  if(cfg.api==="claude") return goClaude();
+  if(!cfg.model) return;
+  const ctxTxt=ctxNow();
+  ctl=new AbortController(); const sig=ctl.signal; const tmr=setTimeout(()=>ctl.abort(),cfg.timeout*1000);
+  $("go").disabled=true; $("stop").hidden=false; const t0=Date.now();
+  const tick=setInterval(()=>{$("aiState").innerHTML=`<span class="row" style="gap:6px"><span class="spin"></span>${cfg.model} กำลังอ่าน EKG… ${Math.round((Date.now()-t0)/1000)} วินาที (local AI อาจใช้ 1–5 นาที)</span>`},1000);
+  $("aiOut").innerHTML="";
+  try{
+    const imgs=[await dataOf(fit(src,1600))];
+    if(cfg.multi && src.width>src.height*1.2){ const h=Math.round(src.width/2), o=Math.round(src.width*0.04);
+      imgs.push(await dataOf(fit(crop(0,h+o),1400)), await dataOf(fit(crop(h-o,src.width-h+o),1400))); }
+    const prompt=PROMPT(ctxTxt);
+    let body;
+    if(cfg.api==="ollama") body={model:cfg.model,stream:false,format:"json",options:{temperature:0.1,num_ctx:8192},
+      messages:[{role:"user",content:prompt,images:imgs.map(d=>d.split(",")[1])}]};
+    else body={model:cfg.model,stream:false,temperature:0.1,max_tokens:2500,
+      messages:[{role:"user",content:[{type:"text",text:prompt},...imgs.map(u=>({type:"image_url",image_url:{url:u}}))]}]};
+    const r=await fetch(base()+API[cfg.api].chat,{method:"POST",headers:hdrs(),body:JSON.stringify(body),signal:sig});
+    if(!r.ok){ let m=""; try{m=(await r.text()).slice(0,300)}catch(_){}
+      throw new Error("เซิร์ฟเวอร์ตอบ HTTP "+r.status+(r.status===404?" (ไม่พบโมเดลหรือ endpoint)":"")+(m?" · "+m:"")); }
+    const j=await r.json();
+    const text=cfg.api==="ollama"?(j.message?.content||""):(j.choices?.[0]?.message?.content||"");
+    let obj=null; try{obj=parseJSON(text)}catch(_){}
+    if(!obj){ const p=el("div","raw"); p.textContent=text||"(ไม่มีข้อความตอบกลับ)"; $("aiOut").append(el("p","caveat","โมเดลตอบไม่เป็น JSON แสดงข้อความดิบด้านล่าง ลองกดวิเคราะห์อีกครั้ง หรือเปลี่ยนเป็นโมเดลที่ใหญ่ขึ้น"),p); }
+    else renderAI(obj);
+    $("aiState").textContent=`อ่านเสร็จใน ${Math.round((Date.now()-t0)/1000)} วินาที · ${cfg.model} · ภาพไม่ออกนอกเครือข่าย รพ.`;
+  }catch(e){
+    $("aiState").textContent=sig.aborted?`หยุดแล้ว (เกิน ${cfg.timeout} วินาที หรือกดหยุด)`:netErr(e); $("fallback").hidden=false;
+  }finally{ clearTimeout(tmr); clearInterval(tick); $("go").disabled=!ready(); $("stop").hidden=true; }
+};
+async function goClaude(){
+  if(!sample){ $("aiState").textContent=inClaude?"กำลังเชื่อมต่อ Claude รอสักครู่":"Claude ใช้ได้เฉพาะในหน้า claude.ai — เลือกระบบ Local AI ในการตั้งค่า"; return; }
+  ctl=new AbortController(); const sig=ctl.signal; $("go").disabled=true; $("stop").hidden=false;
+  $("aiState").innerHTML='<span class="row" style="gap:6px"><span class="spin"></span>Claude กำลังอ่าน EKG… อาจใช้ 30–90 วินาที</span>'; $("aiOut").innerHTML="";
+  try{
+    const lim=await sample.limits().catch(()=>null); const max=lim?.images?.maxCount||1;
+    if(lim&&!lim.images){ noAI("มุมมองนี้ส่งภาพให้ Claude ไม่ได้ — ใช้ Local AI หรือปุ่มคัดลอกคำสั่ง"); return; }
+    const imgs=[await blobOf(src)];
+    if(max>=3&&src.width>src.height*1.2){ const h=Math.round(src.width/2), o=Math.round(src.width*0.04); imgs.push(await blobOf(crop(0,h+o)),await blobOf(crop(h-o,src.width-h+o))); }
+    renderAI(await sample.json(PROMPT(ctxNow()),{images:imgs,modelTier:"complex",signal:sig,cache:false})); $("aiState").textContent="อ่านโดย Claude";
+  }catch(e){ $("aiState").textContent=e?.code==="cancelled"?"หยุดแล้ว":(e?.code==="rate_limited"?"ใช้งานถี่เกินไป รอสักครู่":e?.code==="not_granted"?"ยังไม่ได้อนุญาตให้หน้านี้ใช้ Claude":"เชื่อมต่อ Claude ไม่สำเร็จ ลองใหม่"); $("fallback").hidden=false;
+    if(e?.code==="invalid_json"&&e.text){const p=el("div","raw");p.textContent=e.text;$("aiOut").append(p);} }
+  finally{ $("go").disabled=!ready(); $("stop").hidden=true; }
+}
+function parseJSON(t){ t=String(t).replace(/```(?:json)?/gi,"").trim(); const a=t.indexOf("{"), b=t.lastIndexOf("}"); return JSON.parse(a>=0&&b>a?t.slice(a,b+1):t); }
+function fit(c,max){ const s=Math.min(1,max/Math.max(c.width,c.height)); if(s>=1) return c; const d=document.createElement("canvas"); d.width=Math.round(c.width*s); d.height=Math.round(c.height*s); const g=d.getContext("2d"); g.fillStyle="#fff"; g.fillRect(0,0,d.width,d.height); g.drawImage(c,0,0,d.width,d.height); return d; }
+const dataOf=c=>Promise.resolve(c.toDataURL("image/jpeg",0.9));
+$("stop").onclick=()=>ctl?.abort();
+$("copyPrompt").onclick=async()=>{ const t=PROMPT(ctxNow()).replace("ตอบเป็น JSON object อย่างเดียว ตามรูปแบบนี้:","ตอบเป็นหัวข้ออ่านง่ายบนมือถือ เรียงตามหัวข้อเหล่านี้ (ไม่ต้องเป็น JSON):");
+  const b=$("promptBox"), btn=$("copyPrompt"); b.value=t;
+  try{ await navigator.clipboard.writeText(t); btn.textContent="คัดลอกแล้ว"; }catch(_){ b.hidden=false; b.select(); btn.textContent="แตะค้างในกล่องแล้วเลือกคัดลอก"; } };
+
+function el(tag,cls,txt){const e=document.createElement(tag); if(cls) e.className=cls; if(txt!=null) e.textContent=txt; return e;}
+function list(arr){const u=el("ul"); (Array.isArray(arr)?arr:[arr]).filter(Boolean).forEach(x=>u.append(el("li",null,String(x)))); return u;}
+let lastReport="";
+function renderAI(r){
+  const O=$("aiOut"); O.innerHTML="";
+  const u=["critical","urgent","routine"].includes(r.urgency)?r.urgency:"urgent";
+  const ub=el("div","urg "+u); ub.append(el("strong",null,{critical:"วิกฤต — แจ้งแพทย์ทันที",urgent:"เร่งด่วน — ควรรายงานแพทย์",routine:"ไม่พบภาวะเร่งด่วนจากภาพ"}[u]));
+  if(r.urgent_findings?.length) ub.append(list(r.urgent_findings)); O.append(ub);
+  const imp=el("div","imp"); imp.append(el("span","label","Impression")); imp.append(list(r.impression)); O.append(imp);
+  [["Rate",r.rate],["Rhythm",r.rhythm],["Axis",r.axis],["Chamber",r.chamber],["ST-T change",r.st_t],["PR · QRS · QT",r.intervals]].forEach(([h,v],i)=>{
+    const s=el("div","step"); s.append(el("span","n",String(i+1))); const d=el("div"); d.append(el("h3",null,h),el("p",null,v||"ประเมินไม่ได้")); s.append(d); O.append(s);});
+  if(r.next_steps?.length){const n=el("div","imp");n.append(el("span","label","ควรทำต่อ"),list(r.next_steps));O.append(n);}
+  const cv2=el("p","caveat",`คุณภาพภาพ: ${r.quality||"-"} · ความมั่นใจ: ${r.confidence||"-"} · ${r.limits||""}`); O.append(cv2);
+  lastReport=[`EKG (${cfg.api==="claude"?"Claude":"Local AI "+cfg.model}, รอแพทย์ยืนยัน) — ${$("srcName").textContent}`,`Rate: ${r.rate}`,`Rhythm: ${r.rhythm}`,`Axis: ${r.axis}`,`Chamber: ${r.chamber}`,`ST-T: ${r.st_t}`,`Intervals: ${r.intervals}`,
+    `Impression: ${(r.impression||[]).join("; ")}`,(r.urgent_findings||[]).length?`Urgent: ${r.urgent_findings.join("; ")}`:""].filter(Boolean).join("\n");
+  const row=el("div","row"); const cp=el("button",null,"คัดลอกผลอ่าน"); const ta=el("textarea"); ta.value=lastReport; ta.rows=6; ta.hidden=true; ta.setAttribute("aria-label","ผลอ่าน");
+  cp.onclick=async()=>{try{await navigator.clipboard.writeText(lastReport);cp.textContent="คัดลอกแล้ว";}catch(_){ta.hidden=false;ta.select();cp.textContent="เลือกข้อความไว้แล้ว กด Ctrl+C";}};
+  row.append(cp); O.append(row,ta);
+}
+
+/* ---------- เคสจำลอง 12-lead (สังเคราะห์ ใช้ทดสอบ/ฝึก ไม่ใช่ EKG ผู้ป่วยจริง) ---------- */
+const LEADS12=["I","II","III","aVR","aVL","aVF","V1","V2","V3","V4","V5","V6"];
+// แอมพลิจูดปกติ (mV): P, Q, R, S, T
+const NORM={I:[.10,-.05,.8,-.10,.25],II:[.15,-.05,1.2,-.15,.35],III:[.05,-.05,.5,-.2,.10],aVR:[-.10,0,.15,-.9,-.25],aVL:[.05,-.05,.45,-.3,.10],aVF:[.10,-.05,.9,-.15,.22],
+ V1:[.08,0,.2,-1.0,-.05],V2:[.08,0,.4,-1.4,.45],V3:[.06,0,.8,-.9,.5],V4:[.06,-.05,1.4,-.5,.45],V5:[.06,-.08,1.5,-.25,.35],V6:[.06,-.08,1.2,-.1,.3]};
+const SIMS={
+ nsr:{name:"1. หญิง 45 ปี ใจสั่นเป็นพัก ๆ",ctx:["หญิง","45","ใจสั่นเป็นพัก ๆ 2 วัน ขณะนี้ไม่มีอาการ BP 122/78"],hr:72,ans:"Normal sinus rhythm 72/min, normal axis, ไม่มี ST-T change → routine"},
+ inf:{name:"2. ชาย 62 ปี เจ็บหน้าอก 1 ชม.",ctx:["ชาย","62","เจ็บแน่นหน้าอกร้าวไปกราม 1 ชม. เหงื่อแตก BP 100/60"],hr:68,st:{II:.25,III:.3,aVF:.28,I:-.12,aVL:-.18},ans:"Inferior STEMI (ST ยก II, III, aVF + reciprocal I, aVL) → critical: activate STEMI fast track, ทำ V3R/V4R ระวัง nitrate"},
+ ant:{name:"3. ชาย 55 ปี เจ็บหน้าอกขณะทำงาน",ctx:["ชาย","55","เจ็บหน้าอกกลางอก 40 นาที สูบบุหรี่ BP 150/90"],hr:96,st:{V1:.15,V2:.35,V3:.4,V4:.3,II:-.08,III:-.12,aVF:-.1},ans:"Anterior (antero-septal) STEMI V1–V4, sinus 96 → critical: proximal LAD, STEMI fast track"},
+ af:{name:"4. หญิง 70 ปี ใจสั่น เหนื่อย",ctx:["หญิง","70","ใจสั่น เหนื่อยง่าย 1 วัน BP 110/70"],rhythm:"af",hr:140,ans:"Atrial fibrillation with RVR ~140/min (irregularly irregular, ไม่มี P) → urgent: rate control, ประเมิน hemodynamic"},
+ chb:{name:"5. หญิง 78 ปี เวียนศีรษะ เป็นลม",ctx:["หญิง","78","เวียนศีรษะ เป็นลม 2 ครั้ง BP 90/50 ชีพจรช้า"],rhythm:"chb",hr:38,ans:"Complete (3rd degree) AV block: P 90/min ไม่สัมพันธ์กับ QRS กว้าง ~38/min → critical: atropine/TCP เตรียม pacing"},
+ hk:{name:"6. ชาย 66 ปี ไตวาย ขาดฟอกเลือด",ctx:["ชาย","66","CKD ขาดฟอกเลือด 1 สัปดาห์ อ่อนแรง"],hr:62,hk:true,ans:"Hyperkalemia: T สูงแหลม, P แบน, QRS กว้าง → critical: Ca gluconate, insulin+glucose, ตรวจ K"},
+ vt:{name:"7. ชาย 60 ปี ใจสั่น หน้ามืด",ctx:["ชาย","60","เคย MI ใจสั่น หน้ามืด BP 84/50"],rhythm:"vt",hr:170,ans:"Monomorphic VT ~170/min (wide regular) + unstable → critical: synchronized cardioversion"},
+ svt:{name:"8. หญิง 30 ปี ใจสั่นทันที",ctx:["หญิง","30","ใจสั่นเกิดขึ้นทันที 30 นาที BP 112/70"],rhythm:"svt",hr:180,ans:"SVT ~180/min narrow regular ไม่เห็น P → urgent: vagal maneuver, adenosine"},
+};
+function simEKG(key){
+ const C=SIMS[key], ppm=8, W=270*ppm, rowH=30*ppm, top=6*ppm, H=top+rowH*4+4*ppm, pps=25*ppm, mmv=10*ppm;
+ const c=document.createElement("canvas"); c.width=W; c.height=H; const g=c.getContext("2d");
+ g.fillStyle="#fff"; g.fillRect(0,0,W,H);
+ for(let x=0;x<=W;x+=ppm){const b=(x/ppm)%5===0;g.strokeStyle=b?"#f0a0b4":"#fadde5";g.lineWidth=b?1.4:.7;g.beginPath();g.moveTo(x,0);g.lineTo(x,H);g.stroke();}
+ for(let y=0;y<=H;y+=ppm){const b=(y/ppm)%5===0;g.strokeStyle=b?"#f0a0b4":"#fadde5";g.lineWidth=b?1.4:.7;g.beginPath();g.moveTo(0,y);g.lineTo(W,y);g.stroke();}
+ const gs=(t,m,w)=>Math.exp(-((t-m)**2)/(2*w*w));
+ let seed=key.split("").reduce((a,ch)=>a+ch.charCodeAt(0),7); const rnd=()=>{seed=(seed*16807)%2147483647;return seed/2147483647};
+ // ตำแหน่ง QRS (วินาที) ในช่วง 0–10 s
+ const qrs=[], pw=[]; const R=C.rhythm||"sinus";
+ if(R==="af"){let t=.3;while(t<10){qrs.push(t);t+=60/C.hr*(0.6+rnd()*0.8);}}
+ else if(R==="chb"){for(let t=.5;t<10;t+=60/C.hr)qrs.push(t);for(let t=.15;t<10;t+=60/90)pw.push(t);}
+ else {for(let t=.3;t<10;t+=60/C.hr){qrs.push(t);if(R==="sinus")pw.push(t-.16);}}
+ const wide=R==="vt"||R==="chb"||C.hk, fib=R==="af";
+ function v(lead,t){
+  const [P,Q,Rr,S,T]=NORM[lead]; const st=(C.st&&C.st[lead])||0; let y=0;
+  for(const p of pw) y+=(C.hk?P*.3:P)*gs(t,p,.025);
+  if(fib) y+=.04*Math.sin(t*2*Math.PI*6.3+lead.length)+.03*Math.sin(t*2*Math.PI*8.9);
+  for(const q of qrs){const d=t-q; if(d<-.3||d>.6) continue;
+   if(R==="vt"){const pol=["aVR","V1"].includes(lead)?-1:(lead==="aVL"||lead==="I"?-.4:1);y+=pol*(1.3*gs(d,.02,.04)-.4*gs(d,.12,.03))-pol*.45*gs(d,.26,.05);continue;}
+   const k=wide?2.6:1;
+   y+=Q*gs(d,-.025*k,.008*k)+Rr*gs(d,0,.011*k)+S*gs(d,.028*k,.010*k);
+   const se=.05*k, te=.30; if(st) y+=st/((1+Math.exp(-(d-se)/.008))*(1+Math.exp((d-te)/.03)));
+   if(C.hk){const u=Math.max(0,1-Math.abs(d-.34)/.10); y+=Math.max(Math.abs(T),.2)*2.6*Math.pow(u,1.6)*(lead==="aVR"||lead==="V1"?-.6:1);}
+   else y+=(T+(st>0?st*.8:0))*gs(d,.30,.05);
+  }
+  return y+(rnd()-.5)*.012;
+ }
+ const lay=[["I","aVR","V1","V4"],["II","aVL","V2","V5"],["III","aVF","V3","V6"]];
+ const x0=10*ppm, segW=2.5*pps;
+ g.strokeStyle="#111"; g.lineWidth=2;
+ const cal=(base)=>{g.beginPath();g.moveTo(2*ppm,base);g.lineTo(3*ppm,base);g.lineTo(3*ppm,base-mmv);g.lineTo(8*ppm,base-mmv);g.lineTo(8*ppm,base);g.lineTo(9*ppm,base);g.stroke();};
+ lay.forEach((row,ri)=>{const base=top+rowH*ri+rowH*.6; cal(base);
+  row.forEach((ld,ci)=>{g.beginPath();for(let x=0;x<=segW;x++){const t=ci*2.5+x/pps;const y=base-v(ld,t)*mmv;x?g.lineTo(x0+ci*segW+x,y):g.moveTo(x0+ci*segW+x,y);}g.stroke();
+   g.fillStyle="#111";g.font="bold 22px sans-serif";g.fillText(ld,x0+ci*segW+6,base-rowH*.42);
+   if(ci) {g.beginPath();g.moveTo(x0+ci*segW,base-10);g.lineTo(x0+ci*segW,base+10);g.stroke();}});});
+ const b4=top+rowH*3+rowH*.6; cal(b4); g.beginPath();
+ for(let x=0;x<=10*pps;x++){const y=b4-v("II",x/pps)*mmv;x?g.lineTo(x0+x,y):g.moveTo(x0+x,y);} g.stroke();
+ g.fillStyle="#111";g.font="bold 22px sans-serif";g.fillText("II",x0+6,b4-rowH*.42);
+ g.font="16px monospace";g.fillText("25 mm/s  10 mm/mV  EKG จำลองเพื่อการฝึก/ทดสอบ ไม่ใช่ผู้ป่วยจริง",x0,top-2*ppm);
+ return {c,ppm};
+}
+Object.entries(SIMS).forEach(([k,v])=>{const o=document.createElement("option");o.value=k;o.textContent=v.name;$("simSel").append(o);});
+$("simSel").onchange=e=>{const k=e.target.value; $("simAns").hidden=true;
+ if(!k){$("simKey").hidden=true;return;} const C=SIMS[k], S2=simEKG(k); pdf=null; $("pdfBar").hidden=true; clearAI();
+ setSrc(S2.c,"เคสจำลอง: "+C.name,S2.ppm); $("sex").value=C.ctx[0]; $("age").value=C.ctx[1]; $("hx").value=C.ctx[2];
+ $("simKey").hidden=false; $("simKey").textContent="ดูเฉลย"; $("simAns").textContent="เฉลย: "+C.ans; };
+$("simKey").onclick=()=>{const h=$("simAns").hidden;$("simAns").hidden=!h;$("simKey").textContent=h?"ซ่อนเฉลย":"ดูเฉลย";};
+/* ---------- start with the sample ---------- */
+fillCfg(); if(cfg.api!=="claude"&&!cfg.model) $("aiCfg").open=true;
+const S=makeSample(); setSrc(S.c,"ตัวอย่าง: Lead II จำลอง 75/min",S.ppm);
+meas=[{a:{x:60,y:98},b:{x:220,y:98}}]; draw(); renderMeas();
+</script>
+<script>
+/* ===== เชื่อมกับ STEMI Fast Track Timer =====
+ * เปิดจาก Timer ด้วย ekg.html?case=<id>&sex=..&age=..&hx=..
+ * อ่านผลแล้วกด "บันทึกผลเข้าเคส STEMI" → ส่งผลกลับไปที่หน้าจอ Timer (หน้าต่างแม่)
+ */
+(function(){
+  const q=new URLSearchParams(location.search), caseId=q.get('case');
+  if(!caseId) return;
+  // เติมข้อมูลผู้ป่วยจากเคส
+  if(q.get('sex')) document.getElementById('sex').value=q.get('sex');
+  if(q.get('age')) document.getElementById('age').value=q.get('age');
+  if(q.get('hx')) document.getElementById('hx').value=q.get('hx');
+  // ซ่อนภาพตัวอย่าง ให้เริ่มจากการแนบ EKG ของผู้ป่วย
+  const name=document.getElementById('srcName');
+  if(name) name.textContent='แนบภาพหรือ PDF EKG ของผู้ป่วยรายนี้';
+  const bar=document.createElement('div');
+  bar.style.cssText='display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--accent-soft);color:var(--accent);border-radius:8px;padding:8px 12px;font-size:.9rem';
+  bar.innerHTML='<b>เคส STEMI Fast Track</b><span id="bridgeInfo">'+(q.get('label')?q.get('label').replace(/[<>&]/g,''):'')+'</span><span style="flex:1"></span><button id="bridgeClose" type="button">ปิดหน้าต่างนี้</button>';
+  document.querySelector('.wrap').prepend(bar);
+  document.getElementById('bridgeClose').onclick=()=>parent.postMessage({type:'stemi-ekg-close'},location.origin);
+
+  let last=null;
+  const orig=renderAI;
+  renderAI=function(r){
+    orig(r); last=r;
+    const O=document.getElementById('aiOut');
+    const row=document.createElement('div'); row.className='row';
+    const b=document.createElement('button'); b.className='primary'; b.textContent='บันทึกผลเข้าเคส STEMI';
+    const st=document.createElement('span'); st.className='caveat';
+    b.onclick=()=>{
+      let img='';
+      try{ img=fit(src,900).toDataURL('image/jpeg',0.72); }catch(e){}
+      parent.postMessage({type:'stemi-ekg-result',caseId,
+        result:{urgency:last.urgency||'',impression:Array.isArray(last.impression)?last.impression:[String(last.impression||'')],
+          urgent:last.urgent_findings||[],st_t:last.st_t||'',rate:last.rate||'',rhythm:last.rhythm||'',confidence:last.confidence||'',
+          report:lastReport,model:(typeof cfg!=='undefined'&&cfg.api!=='claude')?cfg.model:'Claude',img}},location.origin);
+      b.disabled=true; st.textContent='ส่งผลเข้าเคสแล้ว · แพทย์ต้องกด “ยืนยันผล” บนการ์ดผู้ป่วย';
+    };
+    row.append(b,st); O.prepend(row);
+  };
+})();
+</script>
+
+
+</body></html>
