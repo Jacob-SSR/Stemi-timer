@@ -160,3 +160,55 @@ test("Exports create real Office packages, preserve Thai and guard CSV formula i
     assert.ok(b.length > 2000);
   }
 });
+
+test("Discarding a mistaken selection removes its data without a completed case or Sheet queue", async () => {
+  const before = readState();
+  await operate({ op: "new" });
+  const c = readState().cases[0];
+  await operate({
+    op: "note",
+    id: c.id,
+    text: "mistaken record",
+    important: true,
+  });
+  await operate({ op: "refer", id: c.id, value: { note: "discard this too" } });
+  await operate({ op: "discard", id: c.id });
+  const after = readState();
+  assert.equal(
+    after.cases.some((x) => x.id === c.id),
+    false,
+  );
+  assert.deepEqual(after.log, before.log);
+  assert.deepEqual(after.pending, before.pending);
+  assert.deepEqual(after.dismissed, before.dismissed);
+  await assert.rejects(operate({ op: "discard", id: c.id }), /ไม่พบเคส/);
+});
+
+test("Discarded automatic STEMI visits stay dismissed across polling and can be selected afresh", async () => {
+  const before = readState();
+  const c = (await snapshot()).cases.find((c) => c.vn === "DEMO001")!;
+  assert.ok(c);
+  await operate({ op: "discard", id: c.id });
+  for (let i = 0; i < 3; i++)
+    assert.equal(
+      (await snapshot()).cases.some((x) => x.vn === c.vn),
+      false,
+    );
+  assert.deepEqual(readState().log, before.log);
+  assert.deepEqual(readState().pending, before.pending);
+  await operate({ op: "pin", vn: c.vn });
+  const fresh = (await snapshot()).cases.find((x) => x.vn === c.vn)!;
+  assert.ok(fresh);
+  assert.notEqual(fresh.id, c.id);
+  assert.equal(fresh.notes.length, 0);
+  assert.equal(readState().dismissed.includes(c.vn!), false);
+});
+
+test("Discard cannot erase a case that another terminal has already closed", async () => {
+  await operate({ op: "new" });
+  const c = readState().cases[0];
+  await operate({ op: "close", id: c.id });
+  const closed = readState();
+  await assert.rejects(operate({ op: "discard", id: c.id }), /ปิดแล้ว/);
+  assert.deepEqual(readState(), closed);
+});
