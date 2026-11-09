@@ -113,6 +113,7 @@ export interface State {
   pending: string[];
   gsError: string;
   gsLastTry: number;
+  gsLease?: { token: string; until: number };
   revision: number;
 }
 export interface Snapshot extends State {

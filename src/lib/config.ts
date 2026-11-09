@@ -15,7 +15,11 @@ export const config = {
     process.env.HOSXP_LAB_ITEMS ||
       '{"Troponin":["1101"],"CK-MB":["1102"],"K":["201"],"Cr":["305"]}',
   ) as Record<string, string[]>,
-  sheetUrl: process.env.GSHEET_URL || "",
-  sheetToken: process.env.GSHEET_TOKEN || "",
+  sheetEmail: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || "",
+  sheetPrivateKey: process.env.GOOGLE_PRIVATE_KEY || "",
+  sheetId: process.env.GOOGLE_SHEET_ID || "",
+  get sheetEnabled() {
+    return !!(this.sheetEmail && this.sheetPrivateKey && this.sheetId);
+  },
   sendPii: process.env.GSHEET_SEND_PII === "true",
 };

@@ -1,7 +1,9 @@
 import { config } from "./config";
 import { changeState, readState } from "./store";
 import { metrics, thaiDate, thaiTime, type Case } from "./model";
-// Preserve the original Apps Script column names and idempotent case_id upsert.
+import { randomUUID } from "node:crypto";
+import { GoogleSheetsClient } from "./google-sheets";
+// Preserve the original column names and idempotent case_id upsert.
 export function sheetRow(c: Case) {
   const m = metrics(c);
   const t = (k: keyof Case["times"]) =>
@@ -11,7 +13,6 @@ export function sheetRow(c: Case) {
           .slice(0, 19)
           .replace("T", " ")
       : "";
-  const safe = (v: string) => (/^[=+\-@\t\r]/.test(v) ? "'" + v : v);
   const row: Record<string, string | number | null> = {
     case_id: c.id,
     วันที่: thaiDate(c.times.door_in.t ?? c.created),
@@ -55,44 +56,39 @@ export function sheetRow(c: Case) {
   ] as const)
     row[col] =
       m[key] == null ? "" : m[key]! <= targets[key] ? "ผ่าน" : "ไม่ผ่าน";
-  for (const [k, v] of Object.entries(row))
-    if (typeof v === "string") row[k] = safe(v);
   return row;
 }
+const client = new GoogleSheetsClient({
+  email: config.sheetEmail,
+  privateKey: config.sheetPrivateKey,
+  id: config.sheetId,
+});
 let flushing = false;
 export async function flushSheets(force = false) {
-  if (!config.sheetUrl || flushing) return;
+  if (!config.sheetEnabled || flushing) return;
   flushing = true;
+  const lease = randomUUID();
   try {
     const job = changeState((s) => {
-      if (!s.pending.length || (!force && Date.now() - s.gsLastTry < 60000))
+      if (
+        !s.pending.length ||
+        (s.gsLease && s.gsLease.until > Date.now()) ||
+        (!force && Date.now() - s.gsLastTry < 60000)
+      )
         return null;
       s.gsLastTry = Date.now();
+      s.gsLease = { token: lease, until: Date.now() + 120000 };
       return s.log.filter((c) => s.pending.includes(c.id)).slice(0, 20);
     });
     if (!job?.length) return;
-    const res = await fetch(config.sheetUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        token: config.sheetToken,
-        rows: job.map(sheetRow),
-      }),
-      signal: AbortSignal.timeout(15000),
-    });
-    const result = (await res.json()) as {
-      ok: boolean;
-      saved?: string[];
-      error?: string;
-    };
-    if (!res.ok || !result.ok)
-      throw new Error(result.error || "ส่ง Google Sheet ไม่สำเร็จ");
+    const saved = await client.upsert(job.map(sheetRow));
     changeState((s) => {
+      if (s.gsLease?.token !== lease) return;
       s.pending = s.pending.filter((id) => {
         const current = s.log.find((c) => c.id === id),
           sent = job.find((c) => c.id === id);
         return (
-          !result.saved?.includes(id) ||
+          !saved.includes(id) ||
           JSON.stringify(current) !== JSON.stringify(sent)
         );
       });
@@ -100,9 +96,13 @@ export async function flushSheets(force = false) {
     });
   } catch (e) {
     changeState((s) => {
-      s.gsError = e instanceof Error ? e.message : "ส่งข้อมูลไม่สำเร็จ";
+      if (s.gsLease?.token === lease)
+        s.gsError = e instanceof Error ? e.message : "ส่งข้อมูลไม่สำเร็จ";
     });
   } finally {
+    changeState((s) => {
+      if (s.gsLease?.token === lease) delete s.gsLease;
+    });
     flushing = false;
   }
 }
