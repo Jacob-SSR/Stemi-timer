@@ -18,8 +18,11 @@ test("ER can stamp, save notes, close a case, record follow-up and download Offi
   }
   const api = page.request;
   await expect(
-    page.getByRole("heading", { name: "ทุกนาที มีความหมาย" }),
+    page.getByRole("heading", { name: "ติดตามการดูแลผู้ป่วย" }),
   ).toBeVisible();
+  await expect(
+    page.getByText("กรุณาใส่รหัสเข้าใช้งาน", { exact: true }),
+  ).not.toBeVisible();
   await expect(
     page.getByText("นายสมชาย ใจดี (ตัวอย่าง)").first(),
   ).toBeVisible();
@@ -39,12 +42,20 @@ test("ER can stamp, save notes, close a case, record follow-up and download Offi
     page.getByRole("heading", { name: label, exact: true }),
   ).toBeVisible();
   await page
-    .getByRole("button", { name: "ตอนนี้", exact: true })
+    .getByRole("button", { name: "บันทึกตอนนี้", exact: true })
     .first()
     .click();
   await expect(
     page.locator(".timeline-row").first().getByText("กดเอง", { exact: true }),
   ).toBeVisible();
+  await page
+    .getByRole("button", { name: "แก้เวลา แพทย์ตรวจ", exact: true })
+    .click();
+  await expect(
+    page.getByRole("dialog", { name: "แก้ไขเวลาที่บันทึก" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "บันทึกเวลา", exact: true }).click();
+  await expect(page.getByRole("dialog")).not.toBeVisible();
   await page
     .getByPlaceholder("บันทึกอาการ การดูแล หรือข้อมูลสำคัญ…")
     .fill("ทดสอบจากเบราว์เซอร์");
@@ -55,8 +66,11 @@ test("ER can stamp, save notes, close a case, record follow-up and download Offi
   await expect(
     page.getByText("ทดสอบจากเบราว์เซอร์", { exact: true }),
   ).toBeVisible();
-  page.once("dialog", (d) => d.accept());
   await page.getByRole("button", { name: "ปิดเคส", exact: true }).click();
+  await page.getByRole("button", { name: "ยืนยันปิดเคส", exact: true }).click();
+  await expect(
+    page.getByRole("dialog", { name: "ทบทวนสาเหตุและการดูแล (RCA)" }),
+  ).toBeVisible();
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.getByRole("button", { name: "ปิดหน้าต่าง", exact: true }).click();
   await page
@@ -82,14 +96,14 @@ test("ER can stamp, save notes, close a case, record follow-up and download Offi
     expect((await res.body()).length).toBeGreaterThan(100);
   }
   await page
-    .getByRole("button", { name: "KPI Dashboard", exact: true })
+    .getByRole("button", { name: "สรุปผลการดูแล", exact: true })
     .click();
   await expect(
     page.getByRole("heading", { name: "ภาพรวมคุณภาพการดูแล" }),
   ).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   await page
-    .getByRole("button", { name: "Fast Track Timer", exact: true })
+    .getByRole("button", { name: "ติดตามผู้ป่วย", exact: true })
     .click();
   expect(
     await page.evaluate(
