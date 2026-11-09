@@ -8,6 +8,7 @@ import {
   type Case,
   type Snapshot,
   type TimeKey,
+  inRange,
 } from "./model";
 const text = z.string().trim().max(4000);
 const time = z.number().finite().min(0).max(4102444800000);
@@ -72,6 +73,12 @@ export const operation = z.discriminatedUnion("op", [
   }),
   z.object({ op: z.literal("close"), id }),
   z.object({ op: z.literal("discard"), id }),
+  z.object({ op: z.literal("note_remove"), id, noteId: id }),
+  z.object({
+    op: z.literal("clear_log"),
+    confirm: z.literal("ล้างประวัติ"),
+    expectedIds: z.array(id).max(50000),
+  }),
   z.object({ op: z.literal("reopen"), id }),
   z.object({
     op: z.literal("refer"),
@@ -103,7 +110,17 @@ export const operation = z.discriminatedUnion("op", [
     op: z.literal("targets"),
     value: z.record(z.string(), z.number().int().min(1).max(600)),
   }),
-  z.object({ op: z.literal("resend") }),
+  z.object({
+    op: z.literal("resend"),
+    from: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    to: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+  }),
 ]);
 export async function snapshot(): Promise<Snapshot> {
   const before = readState();
@@ -135,6 +152,7 @@ export async function snapshot(): Promise<Snapshot> {
     hospital: config.hospital,
     hospitals: config.hospitals,
     sheetEnabled: !!config.sheetUrl,
+    labNames: Object.keys(config.labItems),
   };
 }
 export async function operate(input: unknown) {
@@ -159,8 +177,33 @@ export async function operate(input: unknown) {
       return;
     }
     if (cmd.op === "resend") {
-      s.pending = [...new Set([...s.pending, ...s.log.map((c) => c.id)])];
+      if (cmd.from && cmd.to && cmd.from > cmd.to)
+        throw new Error("ช่วงวันที่ไม่ถูกต้อง");
+      s.pending = [
+        ...new Set([
+          ...s.pending,
+          ...s.log
+            .filter((c) => inRange(c, cmd.from || "", cmd.to || ""))
+            .map((c) => c.id),
+        ]),
+      ];
       s.gsLastTry = 0;
+      return;
+    }
+    if (cmd.op === "clear_log") {
+      const expected = [...cmd.expectedIds].sort(),
+        actual = s.log.map((c) => c.id).sort();
+      if (JSON.stringify(expected) !== JSON.stringify(actual))
+        throw new Error("ประวัติเปลี่ยนจากอีกจอ กรุณาตรวจสอบแล้วลองใหม่");
+      s.dismissed = [
+        ...new Set([
+          ...s.dismissed,
+          ...s.log.map((c) => c.vn).filter((v): v is string => !!v),
+        ]),
+      ];
+      s.log = [];
+      s.pending = [];
+      s.gsError = "";
       return;
     }
     if (cmd.op === "pin") {
@@ -196,6 +239,10 @@ export async function operate(input: unknown) {
       if (c.vn && !s.dismissed.includes(c.vn)) s.dismissed.push(c.vn);
       s.cases = s.cases.filter((x) => x.id !== c.id);
       s.pending = s.pending.filter((id) => id !== c.id);
+    } else if (cmd.op === "note_remove") {
+      if (!c.notes.some((n) => n.id === cmd.noteId))
+        throw new Error("ไม่พบหมายเหตุ");
+      c.notes = c.notes.filter((n) => n.id !== cmd.noteId);
     } else if (cmd.op === "link") {
       const p = patients.find((p) => p.vn === cmd.vn);
       if (!p) throw new Error("ไม่พบ VN");
