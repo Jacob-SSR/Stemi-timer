@@ -42,6 +42,17 @@ import {
   type TimeKey,
 } from "@/lib/model";
 import ModalShell from "./modal-shell";
+import InlineTime from "./inline-time";
+import LabPanel from "./lab-panel";
+import HistoryPanel from "./history-panel";
+import {
+  dateRange,
+  stepDetails,
+  skReasons,
+  symptomPresets,
+  delayPresets,
+  rcaLabel,
+} from "@/lib/workflow";
 type Command = Record<string, unknown>;
 type Modal =
   | "er"
@@ -54,6 +65,7 @@ type Modal =
   | "time"
   | "close"
   | "discard"
+  | "clearLog"
   | null;
 const metricNames = {
   ekg: "ถึงโรงพยาบาล → ตรวจ EKG",
@@ -126,6 +138,9 @@ export default function Workspace() {
     value: string;
   } | null>(null);
   const [erLoading, setErLoading] = useState(false);
+  const [clearText, setClearText] = useState("");
+  const [clearIds, setClearIds] = useState<string[]>([]);
+  const noteInput = useRef<HTMLInputElement>(null);
   const offset = useRef(0),
     inFlight = useRef(false),
     frame = useRef<HTMLIFrameElement>(null);
@@ -151,6 +166,9 @@ export default function Workspace() {
   }, [update]);
   useEffect(() => {
     void sync();
+    const range = dateRange("month");
+    setFrom(range.from);
+    setTo(range.to);
     const p = setInterval(() => void sync(), 10000);
     const t = setInterval(() => setNow(Date.now() + offset.current), 1000);
     return () => {
@@ -274,6 +292,39 @@ export default function Workspace() {
           .toLowerCase()
           .includes(search.toLowerCase())),
   );
+  const history = s ? (
+    <HistoryPanel
+      s={s}
+      records={records}
+      from={from}
+      to={to}
+      path={pathFilter}
+      search={search}
+      busy={busy}
+      setFrom={setFrom}
+      setTo={setTo}
+      setPath={setPathFilter}
+      setSearch={setSearch}
+      exportUrl={exportUrl}
+      onOpen={(m, c) => open(m, c)}
+      onClear={() => {
+        setClearText("");
+        setClearIds(s.log.map((c) => c.id));
+        open("clearLog");
+      }}
+      onResend={() =>
+        void op({
+          op: "resend",
+          ...(from ? { from } : {}),
+          ...(to ? { to } : {}),
+        })
+      }
+      onReopen={(c) => {
+        if (confirm("เปิดเคสนี้กลับมาติดตาม?"))
+          void op({ op: "reopen", id: c.id });
+      }}
+    />
+  ) : null;
   const setField = (c: Case, field: string, value: unknown) =>
     op({ op: "set", id: c.id, field, value });
   if (login)
@@ -802,9 +853,16 @@ export default function Workspace() {
                       <div className="panel-heading">
                         <div>
                           <h2>ลำดับการดูแล Fast Track</h2>
+                          <button
+                            className="timeline-ekg"
+                            onClick={() => open("ekg", active)}
+                          >
+                            <Activity size={16} />
+                            อ่าน EKG ด้วย AI
+                          </button>
                           <p>
                             กด “บันทึกตอนนี้” เมื่อทำขั้นตอนนั้นแล้ว ·
-                            แก้เวลาได้ภายหลัง
+                            หรือกรอกเวลาในช่องได้เลย (บันทึกเมื่อออกจากช่อง)
                           </p>
                         </div>
                         <span className="tag">
@@ -853,6 +911,69 @@ export default function Workspace() {
                                     </span>
                                   )}
                                 </small>
+                                <small>{stepDetails[key]}</small>
+                                {key === "needle" && (
+                                  <div
+                                    className="inline-sk"
+                                    role="group"
+                                    aria-label="การให้ SK ในลำดับเวลา"
+                                  >
+                                    <div className="segmented">
+                                      <button
+                                        disabled={busy}
+                                        aria-pressed={active.sk === "yes"}
+                                        className={
+                                          active.sk === "yes" ? "chosen" : ""
+                                        }
+                                        onClick={() =>
+                                          void setField(active, "sk", "yes")
+                                        }
+                                      >
+                                        ให้ SK
+                                      </button>
+                                      <button
+                                        disabled={busy}
+                                        aria-pressed={active.sk === "no"}
+                                        className={
+                                          active.sk === "no" ? "chosen" : ""
+                                        }
+                                        onClick={() =>
+                                          void setField(active, "sk", "no")
+                                        }
+                                      >
+                                        ไม่ให้ SK
+                                      </button>
+                                    </div>
+                                    {active.sk === "no" && (
+                                      <label className="field">
+                                        เหตุผลที่ไม่ให้ SK ในลำดับเวลา
+                                        <select
+                                          value={active.skReason}
+                                          onChange={(e) =>
+                                            void setField(
+                                              active,
+                                              "skReason",
+                                              e.target.value,
+                                            )
+                                          }
+                                          disabled={busy}
+                                        >
+                                          <option value="">เลือกเหตุผล…</option>
+                                          {[
+                                            ...new Set([
+                                              ...skReasons,
+                                              ...(active.skReason
+                                                ? [active.skReason]
+                                                : []),
+                                            ]),
+                                          ].map((v) => (
+                                            <option key={v}>{v}</option>
+                                          ))}
+                                        </select>
+                                      </label>
+                                    )}
+                                  </div>
+                                )}
                                 {t.hosxp && t.src === "manual" && (
                                   <small>HOSxP {thaiTime(t.hosxp)}</small>
                                 )}
@@ -884,6 +1005,16 @@ export default function Workspace() {
                                 )}
                               </div>
                               <div className="step-actions">
+                                <InlineTime
+                                  key={active.id + key}
+                                  label={name}
+                                  time={t.t}
+                                  now={now ?? s.serverNow}
+                                  disabled={busy || skip || !connected}
+                                  save={(t) =>
+                                    op({ op: "stamp", id: active.id, key, t })
+                                  }
+                                />
                                 {t.t ? (
                                   <span className="recorded-label">
                                     <Check size={16} />
@@ -923,46 +1054,12 @@ export default function Workspace() {
                     </section>
                   </div>
                   <div className="bottom-grid">
-                    <section className="panel">
-                      <div className="panel-heading">
-                        <h2>ผลตรวจทางห้องปฏิบัติการ</h2>
-                        <span className="source">HOSxP</span>
-                      </div>
-                      <div className="table-wrap">
-                        <table>
-                          <thead>
-                            <tr>
-                              <th>รายการ</th>
-                              <th>ผลตรวจ</th>
-                              <th>ส่งตรวจ</th>
-                              <th>รายงานผล</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {active.labs.length ? (
-                              active.labs.map((l) => (
-                                <tr key={l.name}>
-                                  <td>
-                                    <b>{l.name}</b>
-                                  </td>
-                                  <td>
-                                    {l.result || (
-                                      <span className="waiting">รอผล</span>
-                                    )}
-                                  </td>
-                                  <td>{thaiTime(l.ordered)}</td>
-                                  <td>{thaiTime(l.reported)}</td>
-                                </tr>
-                              ))
-                            ) : (
-                              <tr>
-                                <td colSpan={4}>ยังไม่มีรายการ Lab</td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </section>
+                    <LabPanel
+                      c={active}
+                      names={s.labNames || ["Troponin", "CK-MB", "K", "Cr"]}
+                      now={now ?? s.serverNow}
+                      target={s.targets.lab}
+                    />
                     <section className="panel">
                       <div className="panel-heading">
                         <h2>ผลอ่าน EKG</h2>
@@ -1012,7 +1109,9 @@ export default function Workspace() {
                   <section className="panel notes-panel">
                     <div className="panel-heading">
                       <h2>อาการเปลี่ยนแปลง / หมายเหตุ</h2>
-                      <span className="tag">บันทึกพร้อมเวลา</span>
+                      <span className="tag">
+                        ทุกบันทึกมีเวลา · ติ๊ก “สำคัญ” เพื่อแจ้งเตือน
+                      </span>
                     </div>
                     <div className="panel-body">
                       {active.notes.length > 0 && (
@@ -1027,6 +1126,21 @@ export default function Workspace() {
                                 {n.important && <AlertTriangle size={14} />}{" "}
                                 {n.text}
                               </span>
+                              <button
+                                className="note-delete"
+                                disabled={busy}
+                                aria-label={"ลบหมายเหตุ " + n.text}
+                                onClick={() => {
+                                  if (confirm("ลบหมายเหตุนี้?\n" + n.text))
+                                    void op({
+                                      op: "note_remove",
+                                      id: active.id,
+                                      noteId: n.id,
+                                    });
+                                }}
+                              >
+                                ลบ
+                              </button>
                             </div>
                           ))}
                         </div>
@@ -1049,6 +1163,7 @@ export default function Workspace() {
                         }}
                       >
                         <input
+                          ref={noteInput}
                           aria-label="ข้อความหมายเหตุ"
                           placeholder="บันทึกอาการ การดูแล หรือข้อมูลสำคัญ…"
                           value={note}
@@ -1069,6 +1184,38 @@ export default function Workspace() {
                           บันทึก
                         </button>
                       </form>
+                      <div className="quick-notes">
+                        <span>อาการเปลี่ยนแปลง</span>
+                        {symptomPresets.map((text) => (
+                          <button
+                            className="symptom-chip"
+                            key={text}
+                            disabled={busy}
+                            onClick={() => {
+                              setNote((v) => (v ? v + " · " + text : text));
+                              setImportant(true);
+                              noteInput.current?.focus();
+                            }}
+                          >
+                            {text}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="quick-notes">
+                        <span>เหตุล่าช้า</span>
+                        {delayPresets.map((text) => (
+                          <button
+                            key={text}
+                            disabled={busy}
+                            onClick={() => {
+                              setNote((v) => (v ? v + " · " + text : text));
+                              noteInput.current?.focus();
+                            }}
+                          >
+                            {text}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </section>
                   <section className="case-footer">
@@ -1091,7 +1238,10 @@ export default function Workspace() {
                         ผลหลังส่งต่อ
                       </button>
                       <button onClick={() => open("rca", active)}>
-                        ทบทวน RCA
+                        {rcaLabel(active, s.targets)}
+                      </button>
+                      <button onClick={() => open("discard", active)}>
+                        นำออกจากจอ
                       </button>
                       <button
                         className="primary"
@@ -1104,157 +1254,14 @@ export default function Workspace() {
                   </section>
                 </>
               )}
+              {history}
             </>
           ) : (
             <>
-              <div className="filter-bar">
-                <label>
-                  ตั้งแต่
-                  <input
-                    type="date"
-                    value={from}
-                    onChange={(e) => setFrom(e.target.value)}
-                  />
-                </label>
-                <label>
-                  ถึง
-                  <input
-                    type="date"
-                    value={to}
-                    onChange={(e) => setTo(e.target.value)}
-                  />
-                </label>
-                <label>
-                  แนวทาง
-                  <select
-                    value={pathFilter}
-                    onChange={(e) => setPathFilter(e.target.value)}
-                  >
-                    <option value="all">ทั้งหมด</option>
-                    <option value="lytic">Fibrinolysis</option>
-                    <option value="pci">Primary PCI</option>
-                    <option value="both">Lytic / PCI</option>
-                    <option value="medical">Medical</option>
-                  </select>
-                </label>
-                <div className="filter-actions">
-                  <a className="button" href={exportUrl("xlsx")}>
-                    <Download size={15} />
-                    Excel
-                  </a>
-                  <a className="button" href={exportUrl("csv")}>
-                    CSV
-                  </a>
-                  <button onClick={() => window.print()}>พิมพ์ / PDF</button>
-                </div>
-              </div>
               {tab === "dashboard" && (
                 <Dashboard records={records} targets={s.targets} />
               )}
-              <section className="panel">
-                <div className="panel-heading">
-                  <h2>
-                    ทะเบียนเคส <span className="count">{records.length}</span>
-                  </h2>
-                  <div className="search">
-                    <Search size={16} />
-                    <input
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      aria-label="ค้นหาเคสด้วยชื่อ HN หรือ VN"
-                      placeholder="ค้นหาชื่อ / HN / VN"
-                    />
-                  </div>
-                </div>
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>ผู้ป่วย / HN</th>
-                        <th>Door-in</th>
-                        <th>EKG</th>
-                        <th>Needle</th>
-                        <th>DIDO</th>
-                        <th>RCA</th>
-                        <th>จัดการ</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {records.length ? (
-                        records.map((c) => (
-                          <tr key={c.id}>
-                            <td>
-                              <b>{c.label}</b>
-                              <small className="block">HN {c.hn}</small>
-                            </td>
-                            <td>{thaiTime(c.times.door_in.t, true)}</td>
-                            {(["ekg", "needle", "dido"] as const).map((k) => (
-                              <td
-                                key={k}
-                                className={
-                                  metrics(c)[k] != null &&
-                                  metrics(c)[k]! > s.targets[k]
-                                    ? "danger"
-                                    : "success"
-                                }
-                              >
-                                {metrics(c)[k]?.toFixed(1) ?? "—"}{" "}
-                                <small>นาที</small>
-                              </td>
-                            ))}
-                            <td>
-                              <button onClick={() => open("rca", c)}>
-                                {c.rca?.status === "done"
-                                  ? "RCA เสร็จ"
-                                  : c.rca
-                                    ? "RCA ร่าง"
-                                    : "ทำ RCA"}
-                              </button>
-                            </td>
-                            <td>
-                              <div className="row-actions">
-                                <a href={exportUrl("docx", c)}>Word</a>
-                                <button onClick={() => open("refer", c)}>
-                                  Refer
-                                </button>
-                                <button onClick={() => open("outcome", c)}>
-                                  ผลหลังส่งต่อ
-                                </button>
-                                <button onClick={() => open("summary", c)}>
-                                  สรุป
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    if (confirm("เปิดเคสนี้กลับมาติดตาม?"))
-                                      void op({ op: "reopen", id: c.id });
-                                  }}
-                                >
-                                  เปิดเคส
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan={7} className="empty-cell">
-                            ยังไม่มีเคสที่ปิดในช่วงเวลานี้
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-              {s.sheetEnabled && (
-                <div className="sheet-status">
-                  Google Sheet · รอส่ง {s.pending.length} เคส{" "}
-                  {s.gsError && <span className="danger">{s.gsError}</span>}
-                  <button onClick={() => void op({ op: "resend" })}>
-                    ส่งซ้ำ
-                  </button>
-                </div>
-              )}
+              {history}
             </>
           )}
           <footer className="app-footer">
@@ -1292,6 +1299,7 @@ export default function Workspace() {
               time: "แก้ไขเวลาที่บันทึก",
               close: "ยืนยันปิดเคส",
               discard: "ปิดรายการที่เลือกผิด?",
+              clearLog: "ล้างประวัติเคสที่ปิดแล้วทั้งหมด?",
             }[modal]
           }
           wide={modal === "ekg"}
@@ -1303,7 +1311,56 @@ export default function Workspace() {
               {error}
             </div>
           )}
-          {modal === "time" && mc && editingTime ? (
+          {modal === "clearLog" ? (
+            <form
+              className="modal-body"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (
+                  await op({
+                    op: "clear_log",
+                    confirm: clearText,
+                    expectedIds: clearIds,
+                  })
+                )
+                  setModal(null);
+              }}
+            >
+              <p>
+                ลบประวัติเคสที่ปิดแล้วทั้งหมด {clearIds.length} เคส รวมหมายเหตุ
+                ใบส่งต่อ ผลติดตาม RCA และคิวที่ยังรอส่ง
+              </p>
+              <div className="notice">
+                ไม่กระทบเคสที่กำลังติดตามหรือข้อมูลใน HOSxP
+                และไม่ลบแถวที่เคยส่งไป Google Sheet แล้ว
+                การล้างประวัติย้อนคืนจากหน้านี้ไม่ได้
+              </div>
+              <label className="field">
+                พิมพ์ “ล้างประวัติ” เพื่อยืนยัน
+                <input
+                  value={clearText}
+                  onChange={(e) => setClearText(e.target.value)}
+                  autoComplete="off"
+                  required
+                />
+              </label>
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setModal(null)}
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  className="danger-button"
+                  disabled={busy || clearText !== "ล้างประวัติ"}
+                >
+                  ยืนยันล้างประวัติ
+                </button>
+              </div>
+            </form>
+          ) : modal === "time" && mc && editingTime ? (
             <form
               className="modal-body"
               onSubmit={async (e) => {

@@ -116,6 +116,7 @@ export interface State {
   revision: number;
 }
 export interface Snapshot extends State {
+  labNames: string[];
   demo: boolean;
   serverNow: number;
   hospital: string;
